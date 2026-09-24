@@ -225,14 +225,19 @@ open class QuickDraw {
         let startH = thePort.pnLoc.h
         let base = thePort.pnLoc.v
         var h = startH
-        var descenderXs = Set<Int>()   // glyph pixels on the underline row
+        var descenderXs = Set<Int>()   // columns with glyph pixels below the baseline
         for ch in s {
             let g = font.glyph(for: ch)
             // QuickDraw bold: the glyph is drawn again one pixel to the right.
             let left = h + g.xOffset
             if face.contains(.underline) {
-                for x in 0..<(g.width + boldExtra) where g.pixel(x, font.ascent + 1) || (boldExtra == 1 && g.pixel(x - 1, font.ascent + 1)) {
-                    descenderXs.insert(left + x)
+                // Anything below the baseline counts as a descender (matches QuickDraw's output).
+                for x in 0..<(g.width + boldExtra) {
+                    for y in font.ascent..<(font.ascent + font.descent)
+                    where g.pixel(x, y) || (boldExtra == 1 && g.pixel(x - 1, y)) {
+                        descenderXs.insert(left + x)
+                        break
+                    }
                 }
             }
             let glyphRect = Rect(top: base - font.ascent, left: left, bottom: base + font.descent,

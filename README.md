@@ -89,8 +89,12 @@ Two more tools help with comparisons:
 - `Tools/diff_frames.swift` overlays an emulator screenshot on a port frame and
   colors the pixels that differ.
 
-The in-game scorebox matched the original pixel for pixel, including the
-Chicago text.
+The port's attract-mode frames match the original **pixel for pixel**. That
+covers the title text and underline, the cloud, the BEGIN button, the score box,
+the copter and the wagon.
+`OriginalComparisonTests` checks this against a screenshot of the original.
+The copter's in-game loop rate and the Sound Driver semantics (Inside Macintosh
+II-227…230) were checked the same way.
 
 ## Credits and provenance
 

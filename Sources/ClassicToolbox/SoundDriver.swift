@@ -6,6 +6,10 @@ import Foundation
 ///
 /// The driver produces 8-bit unsigned samples (128 = silence) at the Mac's
 /// 22,254.54 Hz sound rate; `render` resamples that to the host's output rate.
+///
+/// Both synthesizers work as Inside Macintosh II-227…230 describes: every 44.93 µs
+/// (one sample) they skip ahead `rate`/`count` bytes (a Fixed) in the waveform, so a
+/// four-tone voice plays at `rate × 22257 / 256` Hz and a phase is a byte offset.
 public final class SoundDriver: @unchecked Sendable {
     public static let nativeRate = 22_254.545_454
     public static let samplesPerTick = nativeRate / 60

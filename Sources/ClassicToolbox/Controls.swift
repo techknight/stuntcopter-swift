@@ -57,14 +57,16 @@ extension QuickDraw {
             let r = c.contrlRect
             switch c.kind {
             case .pushButton:
-                EraseRoundRect(r, 16, 16)
-                FrameRoundRect(r, 16, 16)
+                // System 6's CDEF 0 rounds push buttons with an oval of half the button's height.
+                let oval = r.height / 2
+                EraseRoundRect(r, oval, oval)
+                FrameRoundRect(r, oval, oval)
                 let w = StringWidth(c.contrlTitle)
                 let baseline = r.top + (r.height - (font.ascent + font.descent)) / 2 + font.ascent
                 MoveTo(r.left + (r.width - w) / 2, baseline)
                 DrawString(c.contrlTitle)
                 if c.contrlHilite > 0 && c.contrlHilite < 254 {
-                    InvertRoundRect(r.insetBy(1, 1), 14, 14)
+                    InvertRoundRect(r, oval, oval)
                 }
             case .radioButton, .checkBox:
                 EraseRect(r)

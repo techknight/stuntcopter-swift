@@ -19,6 +19,6 @@ let package = Package(
         // Developer tool: extract/dump resources, generate embedded data and icons.
         .executableTarget(name: "rsrc-tool", dependencies: ["ClassicToolbox"]),
         .testTarget(name: "ClassicToolboxTests", dependencies: ["ClassicToolbox", "StuntCopterCore"]),
-        .testTarget(name: "StuntCopterCoreTests", dependencies: ["StuntCopterCore"], exclude: ["Golden"]),
+        .testTarget(name: "StuntCopterCoreTests", dependencies: ["StuntCopterCore"], exclude: ["Golden", "Original"]),
     ]
 )

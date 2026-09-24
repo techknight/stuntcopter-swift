@@ -1,4 +1,5 @@
 import ClassicToolbox
+import Foundation
 @testable import StuntCopterCore
 import Testing
 
@@ -31,6 +32,16 @@ import Testing
         let (game, _) = try makeGame()
         #expect(matchesGolden(game.myWindow.portBits, "startup"))
         #expect(matchesGolden(game.OffScreen, "offscreen"))
+    }
+
+    /// For comparing against the original in an emulator (Tools/diff_frames.swift):
+    /// ATTRACT_LOOPS=N ATTRACT_OUT=frame.pbm swift test --filter dumpAttractFrame
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["ATTRACT_LOOPS"] != nil))
+    func dumpAttractFrame() throws {
+        let env = ProcessInfo.processInfo.environment
+        let (game, _) = try makeGame()
+        for _ in 0..<Int(env["ATTRACT_LOOPS"]!)! { game.tick() }
+        try pbmData(game.myWindow.portBits).write(to: URL(fileURLWithPath: env["ATTRACT_OUT"] ?? "attract.pbm"))
     }
 
     @Test func attractModeMatchesGolden() throws {
