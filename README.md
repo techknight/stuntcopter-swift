@@ -123,5 +123,3 @@ artifact.
 
 The repository doesn't contain Apple's Chicago font, only the game's text
 rendered in it (and the font was removed from the git history too).
-
-*Rest in peace, Duane Blehm. Thanks for the games.*
