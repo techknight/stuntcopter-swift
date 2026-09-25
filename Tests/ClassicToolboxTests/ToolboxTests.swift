@@ -77,7 +77,8 @@ let fork = try! ResourceFork(forkData: EmbeddedResources.stuntCopterFork)
         }
         // The ground bar's end pixel at the very corner is clipped to the plate.
         #expect(icon.pixel(0, 31) != 0)
-        #expect(px32[(31 * 32 + 0) * 4 + 3] == 0)
+        let cornerAlpha: UInt8 = px32[(31 * 32 + 0) * 4 + 3]
+        #expect(cornerAlpha == 0)
         // 1024 px: the largest whole-pixel scale that keeps the whole icon (bar ends
         // included) inside the rounded plate, so every ICN# black pixel is opaque black.
         let px1024 = appIconPixels(icon: icon, size: 1024)
@@ -159,14 +160,14 @@ let fork = try! ResourceFork(forkData: EmbeddedResources.stuntCopterFork)
         let dst = q.thePort.portBits
         q.FillRect(Rect(left: 0, top: 0, right: 4, bottom: 1), black)
         q.CopyBits(src, dst, src.bounds, src.bounds, srcCopy, nil)
-        #expect(Array(dst.pixels[0..<4]) == [1, 0, 1, 0])
+        #expect(Array(dst.pixels[0..<4]) == ([1, 0, 1, 0] as [UInt8]))
         q.FillRect(Rect(left: 0, top: 0, right: 4, bottom: 1), black)
         q.CopyBits(src, dst, src.bounds, src.bounds, srcOr, nil)
-        #expect(Array(dst.pixels[0..<4]) == [1, 1, 1, 1])
+        #expect(Array(dst.pixels[0..<4]) == ([1, 1, 1, 1] as [UInt8]))
         q.EraseRect(Rect(left: 0, top: 0, right: 4, bottom: 1))
         let mask = Region(rect: Rect(left: 2, top: 0, right: 4, bottom: 1))
         q.CopyBits(src, dst, src.bounds, src.bounds, srcCopy, mask)
-        #expect(Array(dst.pixels[0..<4]) == [0, 0, 1, 0])
+        #expect(Array(dst.pixels[0..<4]) == ([0, 0, 1, 0] as [UInt8]))
     }
 
     @Test func invertTwiceRestoresAndPatternsAlign() {

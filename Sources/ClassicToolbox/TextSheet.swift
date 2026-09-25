@@ -79,7 +79,7 @@ public struct TextSheet: Sendable {
             let rowBytes = (width + 7) / 8
             var pixels = [UInt8](repeating: 0, count: width * height)
             for y in 0..<height {
-                for x in 0..<width where (d[p + y * rowBytes + x / 8] >> (7 - UInt8(x % 8))) & 1 == 1 {
+                for x in 0..<width where packedBit(d, p + y * rowBytes, x) {
                     pixels[y * width + x] = 1
                 }
             }

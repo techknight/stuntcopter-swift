@@ -9,7 +9,9 @@ public struct Pattern: Equatable, Sendable {
 
     @inline(__always)
     public func bit(_ x: Int, _ y: Int) -> UInt8 {
-        (rows[y & 7] >> (7 - UInt8(x & 7))) & 1
+        let row: UInt8 = rows[y & 7]
+        let shift = UInt8(7 - (x & 7))
+        return (row >> shift) & 1
     }
 
     public static let white = Pattern([0, 0, 0, 0, 0, 0, 0, 0])

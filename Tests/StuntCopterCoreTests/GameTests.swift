@@ -10,8 +10,12 @@ import Testing
         let (game, _) = try makeGame()
         let bounds = game.OffScreen.bounds
         var rects = [game.OffScoreBox, game.OffManInWagon, game.OffDriver, game.OffHorse, game.OffHeight, game.OffCross]
-        rects += game.OffCopter[1...3] + game.OffWagon[1...3] + game.OffFlip[1...15] + game.OffMan[1...14]
-        rects += game.OffNum[0...9] + game.OffCloud[1...3]
+        rects.append(contentsOf: game.OffCopter[1...3])
+        rects.append(contentsOf: game.OffWagon[1...3])
+        rects.append(contentsOf: game.OffFlip[1...15])
+        rects.append(contentsOf: game.OffMan[1...14])
+        rects.append(contentsOf: game.OffNum[0...9])
+        rects.append(contentsOf: game.OffCloud[1...3])
         for r in rects {
             #expect(r.intersection(bounds) == r, "\(r) outside \(bounds)")
         }
@@ -163,7 +167,10 @@ import Testing
         }
         // Notes of 10, 5, 5 and 20 ticks; the second FlipSound[4] has duration 0 (the
         // driver used it up), so the last chord is not repeated.
-        #expect(runs.map { Int((Double($0.length) / (1000.0 / 60)).rounded()) } == [10, 5, 5, 20])
+        let msPerTick = 1000.0 / 60
+        let noteTicks: [Int] = runs.map { run in Int((Double(run.length) / msPerTick).rounded()) }
+        let expectedTicks: [Int] = [10, 5, 5, 20]
+        #expect(noteTicks == expectedTicks)
         // Gaps between notes: in the original on a Mac Plus, ~10–55 ms (mean ~30).
         let gaps = zip(runs, runs.dropFirst()).map { $1.start - ($0.start + $0.length) }
         #expect(gaps.allSatisfy { $0 >= 1 && $0 <= 75 }, "gaps \(gaps) ms")

@@ -69,7 +69,7 @@ public struct BitmapFont: Sendable {
         guard owStart + 2 * (n + 1) <= d.count else { throw ResourceError.malformed("FONT tables") }
 
         func bit(_ x: Int, _ y: Int) -> Bool {
-            (d[imageStart + y * rowBytes + x / 8] >> (7 - UInt8(x % 8))) & 1 != 0
+            packedBit(d, imageStart + y * rowBytes, x)
         }
 
         func makeGlyph(_ i: Int) -> Glyph? {

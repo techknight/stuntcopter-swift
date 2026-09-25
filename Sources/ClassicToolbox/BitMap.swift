@@ -1,3 +1,13 @@
+/// Bit `x` (most significant first) of a row of packed 1-bit pixels that starts at
+/// `rowStart` in `bytes`. Written with typed steps: older Swift compilers time out
+/// type-checking the one-expression form.
+@inline(__always)
+public func packedBit(_ bytes: [UInt8], _ rowStart: Int, _ x: Int) -> Bool {
+    let byte: UInt8 = bytes[rowStart + x / 8]
+    let shift = UInt8(7 - x % 8)
+    return (byte >> shift) & 1 == 1
+}
+
 /// A 1-bit QuickDraw BitMap. Pixels are stored one per byte (0 = white, 1 = black)
 /// for simplicity; `rowBytes` is kept only for fidelity/diagnostics.
 public final class BitMap {
@@ -53,8 +63,7 @@ public final class BitMap {
         let w = bounds.width
         for y in 0..<bounds.height {
             for x in 0..<w {
-                let byte = packed[y * rowBytes + x / 8]
-                pixels[y * w + x] = (byte >> (7 - UInt8(x % 8))) & 1
+                pixels[y * w + x] = packedBit(packed, y * rowBytes, x) ? 1 : 0
             }
         }
     }
