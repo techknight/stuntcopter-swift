@@ -49,6 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         if Bundle.main.bundleIdentifier == nil, let icn = try? game.resources.iconList(129) {
             NSApp.applicationIconImage = makeIconImage(icon: icn.icon, mask: icn.mask)
         }
+        NSWindow.allowsAutomaticWindowTabbing = false   // no "Show Tab Bar" in the View menu
         buildMenus()
         buildWindow()
         do {
@@ -104,6 +105,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
                           backing: .buffered, defer: false)
         window.title = "StuntCopter"
         window.collectionBehavior = [.fullScreenPrimary]
+        // One game window: no tabs. (A tab bar would eat into the content area and
+        // knock the picture off its integer scale.)
+        window.tabbingMode = .disallowed
         window.contentMinSize = contentSize(scale: 1)
         window.acceptsMouseMovedEvents = true
         window.delegate = self
@@ -125,26 +129,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         view.onKeyDown = { [weak self] event in self?.keyDown(event) ?? false }
     }
 
+    /// Window chrome around the game view (title bar, plus anything else AppKit adds),
+    /// measured rather than assumed.
+    private var chromeSize: NSSize {
+        NSSize(width: window.frame.width - view.bounds.width, height: window.frame.height - view.bounds.height)
+    }
+
     /// Snap user resizes to integer magnifications.
     func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
         guard !sender.styleMask.contains(.fullScreen) else { return frameSize }
-        let content = sender.contentRect(forFrameRect: NSRect(origin: .zero, size: frameSize)).size
-        let s = max(1, min(Int(content.width) / game.windowRect.width, Int(content.height) / game.windowRect.height))
-        return sender.frameRect(forContentRect: NSRect(origin: .zero, size: contentSize(scale: s))).size
+        let chrome = chromeSize
+        let s = max(1, min(Int(frameSize.width - chrome.width) / game.windowRect.width,
+                           Int(frameSize.height - chrome.height) / game.windowRect.height))
+        let content = contentSize(scale: s)
+        return NSSize(width: content.width + chrome.width, height: content.height + chrome.height)
     }
 
     func windowDidResize(_ notification: Notification) {
+        guard !window.styleMask.contains(.fullScreen), !window.inLiveResize else { return }
+        snapToIntegerScale()
+    }
+
+    func windowDidEndLiveResize(_ notification: Notification) {
         guard !window.styleMask.contains(.fullScreen) else { return }
-        defaults.set(view.scale, forKey: "Scale")
+        snapToIntegerScale()
+    }
+
+    func windowDidExitFullScreen(_ notification: Notification) { snapToIntegerScale() }
+
+    /// If anything changed the content area behind our back, resize the window so the
+    /// game view is exactly 503×310 × an integer again (no letterboxing in a window).
+    private func snapToIntegerScale() {
+        let s = view.scale
+        if view.bounds.size != contentSize(scale: s) {
+            setGameScale(s)
+        } else {
+            defaults.set(s, forKey: "Scale")
+        }
+    }
+
+    /// Sizes the window so the game view is exactly `s`× the original, keeping the
+    /// window's top-left corner where it is.
+    private func setGameScale(_ s: Int) {
+        let top = window.frame.maxY
+        window.setContentSize(contentSize(scale: s))
+        window.setFrameTopLeftPoint(NSPoint(x: window.frame.minX, y: top))
+        defaults.set(s, forKey: "Scale")
     }
 
     @objc private func setScale(_ sender: NSMenuItem) {
         guard !window.styleMask.contains(.fullScreen) else { return }
-        let size = contentSize(scale: sender.tag)
-        var frame = window.frameRect(forContentRect: NSRect(origin: .zero, size: size))
-        frame.origin = NSPoint(x: window.frame.minX, y: window.frame.maxY - frame.height)
-        window.setFrame(frame, display: true, animate: false)
-        defaults.set(sender.tag, forKey: "Scale")
+        setGameScale(sender.tag)
     }
 
     // MARK: Frame pacing
