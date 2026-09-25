@@ -6,8 +6,10 @@ import StuntCopterCore
 /// runs ModalDialog's event handling.
 @MainActor
 final class DialogPanel: NSPanel {
-    /// dBoxProc frame drawn outside the content: 1 black, 1 white, 2 black.
-    static let frameWidth = 4
+    /// dBoxProc frame drawn outside the content, measured from the original on an
+    /// emulated Mac Plus: from the outside in, 1 black, 2 white, 2 black, 3 white.
+    static let frame: [UInt8] = [1, 0, 0, 1, 1, 0, 0, 0]
+    static let frameWidth = frame.count
 
     let dialog: ClassicDialog
     let game: StuntCopterGame
@@ -81,7 +83,7 @@ final class DialogPanel: NSPanel {
         for y in 0..<h {
             for x in 0..<w {
                 let d = min(x, y, w - 1 - x, h - 1 - y)   // distance from the outer edge
-                if d < DialogPanel.frameWidth { composite.pixels[y * w + x] = (d == 1) ? 0 : 1 }
+                if d < DialogPanel.frameWidth { composite.pixels[y * w + x] = DialogPanel.frame[d] }
             }
         }
     }

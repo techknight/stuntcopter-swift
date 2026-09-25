@@ -280,13 +280,14 @@ open class QuickDraw {
         var v = box.top + font.ascent
         for line in wrap(text, width: box.width) {
             if v - font.ascent >= box.bottom { break }
-            MoveTo(box.left, v)
+            MoveTo(box.left + 1, v)   // TextEdit starts lines one pixel in (matches the original)
             DrawString(line)
             v += lineHeight
         }
     }
 
-    /// Splits text into lines no wider than `width`, breaking at spaces and CRs.
+    /// Splits text into lines no wider than `width` (counting each word's trailing
+    /// spaces), breaking at spaces and CRs.
     public func wrap(_ text: String, width: Int) -> [String] {
         var lines: [String] = []
         for para in text.split(separator: "\r", omittingEmptySubsequences: false) {
@@ -299,7 +300,9 @@ open class QuickDraw {
                 while j < para.endIndex && para[j] == " " { j = para.index(after: j) }
                 let word = String(para[i..<j])
                 let candidate = line + word
-                if !line.isEmpty && StringWidth(candidate.trimmingCharacters(in: .init(charactersIn: " "))) > width {
+                // Like TextEdit, a word is measured with its trailing spaces: in the About
+                // box "…$18.00 plus" is exactly the box width, and the original still wraps.
+                if !line.isEmpty && StringWidth(candidate) > width {
                     lines.append(line)
                     line = word
                 } else {

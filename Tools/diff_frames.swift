@@ -2,8 +2,9 @@
 // (503×310 PBM, placed at the window origin 4,30) and writes a color diff:
 // black = both, red = original only, blue = port only.
 //
-//   swift Tools/diff_frames.swift <original.png> <port.pbm> <out.png> [top] [bottom] [scale]
-// Optional top/bottom restrict the comparison (and the output) to window-local rows.
+//   swift Tools/diff_frames.swift <original.png> <port.pbm> <out.png> [top] [bottom] [scale] [x y]
+// Optional top/bottom restrict the comparison (and the output) to the port frame's rows;
+// x y give where the port frame sits on the 512×342 screen (default: the game window, 4 30).
 import CoreGraphics
 import Foundation
 import ImageIO
@@ -31,7 +32,7 @@ let rowBytes = (pw + 7) / 8
 func port(_ x: Int, _ y: Int) -> Bool { (pbm[p + y * rowBytes + x / 8] >> (7 - UInt8(x % 8))) & 1 == 1 }
 
 let top = a.count > 4 ? Int(a[4])! : 0, bottom = a.count > 5 ? Int(a[5])! : ph
-let (ox, oy) = (4, 30)
+let (ox, oy) = a.count > 8 ? (Int(a[7])!, Int(a[8])!) : (4, 30)
 var rgba = [UInt8](repeating: 255, count: pw * ph * 4)
 var diffs = 0
 for y in top..<bottom {
