@@ -51,6 +51,17 @@ func writePNG(_ bm: BitMap, to path: String, scale: Int = 1, mask: BitMap? = nil
     CGImageDestinationFinalize(dest)
 }
 
+func writeRGBAPNG(_ rgba: [UInt8], size: Int, to path: String) {
+    let provider = CGDataProvider(data: Data(rgba) as CFData)!
+    let image = CGImage(width: size, height: size, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: size * 4,
+                        space: CGColorSpaceCreateDeviceRGB(),
+                        bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                        provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)!
+    let dest = CGImageDestinationCreateWithURL(URL(fileURLWithPath: path) as CFURL, UTType.png.identifier as CFString, 1, nil)!
+    CGImageDestinationAddImage(dest, image, nil)
+    CGImageDestinationFinalize(dest)
+}
+
 @MainActor func render(_ pic: Picture) -> BitMap {
     let frame = pic.picFrame.offsetBy(-pic.picFrame.left, -pic.picFrame.top)
     let qd = QuickDraw(port: GrafPort(size: frame))
@@ -127,27 +138,14 @@ case "dump":
 case "iconset":
     guard args.count == 4 else { fail("usage: rsrc-tool iconset <file.rsrc> <out.iconset>") }
     let fork = try ResourceFork(forkData: readBytes(args[2]))
-    let (icon, mask) = try fork.iconList(129)
+    let (icon, _) = try fork.iconList(129)   // the ICN# "mask" isn't a real mask; see appIconPixels
     let out = args[3]
     try FileManager.default.createDirectory(atPath: out, withIntermediateDirectories: true)
     for size in [16, 32, 128, 256, 512] {
         for retina in [1, 2] {
             let px = size * retina
             let name = retina == 1 ? "icon_\(size)x\(size).png" : "icon_\(size)x\(size)@2x.png"
-            if px >= 32 {
-                writePNG(icon, to: "\(out)/\(name)", scale: px / 32, mask: mask)
-            } else {
-                // 16×16: sample every other pixel of the 32×32 art.
-                let small = BitMap(bounds: Rect(top: 0, left: 0, bottom: 16, right: 16))
-                let smallMask = BitMap(bounds: small.bounds)
-                for y in 0..<16 {
-                    for x in 0..<16 {
-                        small.pixels[y * 16 + x] = icon.pixels[(y * 2) * 32 + x * 2] | icon.pixels[(y * 2 + 1) * 32 + x * 2 + 1]
-                        smallMask.pixels[y * 16 + x] = mask.pixels[(y * 2) * 32 + x * 2]
-                    }
-                }
-                writePNG(small, to: "\(out)/\(name)", mask: smallMask)
-            }
+            writeRGBAPNG(appIconPixels(icon: icon, size: px), size: px, to: "\(out)/\(name)")
         }
     }
     print("wrote \(out)")

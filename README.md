@@ -44,6 +44,10 @@ Don't land on the driver or the horse!
   `defaults write com.techknight.StuntCopter LoopsPerSecond -float 40`.
   Options ▸ Set Speed's "SLOW BY 2/4" choices slow it to 80% and 65%.
 - Quit is in the application menu, and desk accessories are gone.
+- The app icon is the original `ICN#`, drawn black on white as the System 6 Finder
+  showed it and scaled up by whole pixels onto a white rounded-square plate, clipped
+  to the plate's shape. The `ICN#`'s "mask" half isn't a real silhouette, so it's
+  ignored.
 
 ## Build and run
 

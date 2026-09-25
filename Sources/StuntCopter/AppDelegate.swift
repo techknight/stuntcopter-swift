@@ -47,7 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             return
         }
         if Bundle.main.bundleIdentifier == nil, let icn = try? game.resources.iconList(129) {
-            NSApp.applicationIconImage = makeIconImage(icon: icn.icon, mask: icn.mask)
+            NSApp.applicationIconImage = makeIconImage(icon: icn.icon)
         }
         NSWindow.allowsAutomaticWindowTabbing = false   // no "Show Tab Bar" in the View menu
         buildMenus()

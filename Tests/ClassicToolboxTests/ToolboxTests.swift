@@ -58,6 +58,48 @@ let fork = try! ResourceFork(forkData: EmbeddedResources.stuntCopterFork)
         #expect(items[7].kind == .icon && items[7].resourceID == 130)
     }
 
+    @Test func appIconShowsTheICNBitsBlackOnWhite() throws {
+        let icon = try fork.iconList(129).icon
+        // 32 px: the icon 1:1, black where the ICN# is black, opaque white elsewhere
+        // (the plate's rounded corners clip both).
+        let px32 = appIconPixels(icon: icon, size: 32)
+        for y in 0..<32 {
+            for x in 0..<32 {
+                let i = (y * 32 + x) * 4
+                let inCorner = (x < 8 || x >= 24) && (y < 8 || y >= 24)   // rounded plate corners
+                guard !inCorner else { continue }
+                if icon.pixel(x, y) != 0 {
+                    #expect(px32[i] == 0 && px32[i + 3] == 255)
+                } else {
+                    #expect(px32[i] == 255 && px32[i + 3] == 255)
+                }
+            }
+        }
+        // The ground bar's end pixel at the very corner is clipped to the plate.
+        #expect(icon.pixel(0, 31) != 0)
+        #expect(px32[(31 * 32 + 0) * 4 + 3] == 0)
+        // 1024 px: the largest whole-pixel scale that keeps the whole icon (bar ends
+        // included) inside the rounded plate, so every ICN# black pixel is opaque black.
+        let px1024 = appIconPixels(icon: icon, size: 1024)
+        var k = 0
+        for scale in stride(from: 25, through: 1, by: -1) {
+            let o = (1024 - 32 * scale) / 2
+            let ok = (0..<32).allSatisfy { y in (0..<32).allSatisfy { x in
+                icon.pixel(x, y) == 0 || {
+                    let i = ((o + y * scale + scale / 2) * 1024 + o + x * scale + scale / 2) * 4
+                    return px1024[i] == 0 && px1024[i + 3] == 255
+                }()
+            } }
+            if ok { k = scale; break }
+        }
+        #expect(k >= 20, "the icon should stay large on the 824 plate (scale \(k))")
+        let o = (1024 - 32 * k) / 2
+        let blackCount = stride(from: 0, to: px1024.count, by: 4).filter { px1024[$0] == 0 && px1024[$0 + 3] == 255 }.count
+        let icnBlack = icon.pixels.filter { $0 != 0 }.count
+        #expect(blackCount == icnBlack * k * k, "no black pixel clipped (scale \(k), origin \(o))")
+        #expect(px1024[3] == 0)
+    }
+
     @Test func packBits() {
         // Apple Tech Note 1023 example.
         let packed: [UInt8] = [0xFE, 0xAA, 0x02, 0x80, 0x00, 0x2A, 0xFD, 0xAA, 0x03, 0x80, 0x00, 0x2A, 0x22, 0xF7, 0xAA]
