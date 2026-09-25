@@ -17,7 +17,7 @@ let package = Package(
         // AppKit shell: window, menus, input capture, audio output.
         .executableTarget(name: "StuntCopter", dependencies: ["StuntCopterCore"]),
         // Developer tool: extract/dump resources, generate embedded data and icons.
-        .executableTarget(name: "rsrc-tool", dependencies: ["ClassicToolbox"]),
+        .executableTarget(name: "rsrc-tool", dependencies: ["ClassicToolbox", "StuntCopterCore"]),
         .testTarget(name: "ClassicToolboxTests", dependencies: ["ClassicToolbox", "StuntCopterCore"]),
         .testTarget(name: "StuntCopterCoreTests", dependencies: ["StuntCopterCore"], exclude: ["Golden", "Original"]),
     ]

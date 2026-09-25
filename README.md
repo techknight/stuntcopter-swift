@@ -14,8 +14,14 @@ Don't land on the driver or the horse!
   name, variable, constant and comment, so the two files can be read side by side.
 - **The art, regions, strings, dialogs, controls and menus come from the original
   1987 application's resource fork.** Nothing was redrawn.
-- **Text uses Apple's actual Chicago 12 bitmap font**, from the System 6.0.8 System
-  file. Bold and underline are applied the way QuickDraw applied them.
+- **Text is pixel-exact Chicago 12, without shipping the font.** Every string the
+  game draws was pre-rendered once into a small 1-bit text sheet
+  (`Resources/StuntCopter.textsheet`). The rendering used Apple's Chicago 12 from a
+  System 6.0.8 disk, with bold, underline and TextEdit wrapping done as QuickDraw
+  did them. Numbers are built from single pre-rendered digits. A test drives every
+  screen and dialog and fails if any text is missing from the sheet. To regenerate
+  the sheet, run `make text SYSTEM_IMAGE=<System 6 disk image>`. The font itself
+  only ever goes to `build/`.
 - **Rendering goes through a small re-implementation of 1-bit QuickDraw**
   (`Sources/ClassicToolbox`): `CopyBits` with mask regions, patterns, regions,
   controls and dialogs. The game draws into a retained 503×310 framebuffer exactly as
@@ -66,7 +72,7 @@ swift run StuntCopter   # run straight from SwiftPM
 | --- | --- |
 | `original/` | Blehm's `StuntCopter.pas` and `StuntCopter.R`, and the app's AppleDouble resource fork |
 | `Resources/StuntCopter.rsrc` | the 1987 resource fork, extracted (`make resources`) |
-| `Resources/Chicago12.FONT` | Chicago 12 from the System 6.0.8 System file |
+| `Resources/StuntCopter.textsheet` | all of the game's text, pre-rendered in Chicago 12 (`make text`) |
 | `Sources/ClassicToolbox` | resource manager, 1-bit QuickDraw, regions, fonts, controls, dialogs, Sound Driver |
 | `Sources/StuntCopterCore` | the game: `StuntCopterGame.swift` is the port of `StuntCopter.pas` |
 | `Sources/StuntCopter` | the AppKit shell: window, menus, frame pacing, mouse capture, audio |
@@ -115,8 +121,7 @@ the modern plumbing around it. The About box still shows the 1987 text,
 including the source-code offer and the Ulysses, Kansas address, as a historical
 artifact.
 
-The Chicago 12 font is Apple's. Neither the original game nor the font comes with
-an explicit license, so check before redistributing binaries or making this
-repository public.
+The repository doesn't contain Apple's Chicago font, only the game's text
+rendered in it (and the font was removed from the git history too).
 
 *Rest in peace, Duane Blehm. Thanks for the games.*

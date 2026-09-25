@@ -56,4 +56,36 @@ import Testing
         #expect(bm.pixel(ok.left + 8, ok.top + 3) == 0)
         #expect(matchesGolden(bm, "offscreen-dialog"))
     }
+
+    /// Everything the game draws must be in the pre-rendered text sheet: no text is
+    /// drawn from a font at runtime.
+    @Test func everyStringTheGameDrawsIsInTheTextSheet() throws {
+        let (game, host) = try makeGame()
+        for _ in 0..<60 { game.tick() }                                  // title + attract
+        let p = Point(h: 250, v: 178)
+        game.post(.mouseDown(p)); game.post(.mouseUp(p)); game.tick()    // BEGIN
+        for level in 1...12 {                                            // LEVEL 2…13 buttons
+            game.GoodJumps = 5
+            game.MenLeft = 1
+            game.ResetManHanging()
+            for _ in 0..<40 { game.tick(); host.ticks += 2 }
+            _ = level
+        }
+        game.post(.keyDown("\u{8}")); game.tick()                        // pause: RESUME / END
+        game.post(.mouseDown(Point(h: 250, v: 213))); game.post(.mouseUp(Point(h: 250, v: 213)))
+        game.tick(); game.tick()                                         // END → title redraw
+        host.modalAnswers = [4, 3]
+        game.DoMenuCommand(StuntCopterGame.appleMenu, 1)                 // About (+ BackFlip)
+        host.modalAnswers = [3, 4, 1]
+        game.DoMenuCommand(StuntCopterGame.optionMenu, 4)                // Speed
+        for item in [3, 5, 6] { game.DoMenuCommand(StuntCopterGame.optionMenu, item) }
+        #expect(game.textMisses.isEmpty, "not in the text sheet: \(game.textMisses.sorted())")
+    }
+
+    @Test func textSheetRoundTripsAndHasChicagoMetrics() throws {
+        let sheet = TextSheet.stuntCopter
+        #expect(sheet.ascent == 12 && sheet.descent == 3 && sheet.leading == 1)
+        let bytes = sheet.encoded()
+        #expect(try TextSheet(data: bytes).encoded() == bytes)
+    }
 }

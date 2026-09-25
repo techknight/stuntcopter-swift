@@ -5,8 +5,11 @@
 //   rsrc-tool embed   <file> <out.swift> <EnumName>   generate a Swift source embedding a file
 //   rsrc-tool dump    <file.rsrc> <outdir>            PICT/RGN/ICON/ICN# as PNGs
 //   rsrc-tool iconset <file.rsrc> <out.iconset>       AppIcon.iconset from ICN# 129
+//   rsrc-tool text-sheet <font.FONT> <file.rsrc> <out.textsheet>
+//                     pre-render all of StuntCopter's text with a bitmap font
 
 import ClassicToolbox
+import StuntCopterCore
 import CoreGraphics
 import Foundation
 import ImageIO
@@ -149,6 +152,17 @@ case "iconset":
         }
     }
     print("wrote \(out)")
+
+case "text-sheet":
+    guard args.count == 5 else { fail("usage: rsrc-tool text-sheet <font.FONT> <file.rsrc> <out.textsheet>") }
+    let font = try BitmapFont(fontResource: readBytes(args[2]))
+    let fork = try ResourceFork(forkData: readBytes(args[3]))
+    let inventory = try StuntCopterGame.textInventory(fork)
+    let sheet = MainActor.assumeIsolated {
+        TextSheet.build(font: font, strings: inventory.strings, textBoxes: inventory.textBoxes)
+    }
+    try Data(sheet.encoded()).write(to: URL(fileURLWithPath: args[4]))
+    print("wrote \(args[4]): \(sheet.entries.count) strings, \(sheet.encoded().count) bytes")
 
 default:
     fail("unknown command \(args[1])")

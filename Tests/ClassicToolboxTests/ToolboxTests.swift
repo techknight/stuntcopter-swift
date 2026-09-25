@@ -190,23 +190,20 @@ let fork = try! ResourceFork(forkData: EmbeddedResources.stuntCopterFork)
         #expect(px[3] == 1 && px[4] == 0 && px[4 * 8] == 0)
     }
 
-    @Test func everyCharacterInTheGameHasAGlyph() throws {
-        var text = ""
-        for id in [129, 130, 131, 140, 141] {
-            for item in try fork.itemList(id) where item.kind != .icon { text += item.text }
-        }
-        text += "WALKTROTGALLOPHEAVYNORMALOH BOYFLYING0123456789LEVEL " + (try fork.indString(256, 1)) + (try fork.indString(256, 2))
-        let font = BitmapFont.chicago12
-        #expect(font.ascent == 12 && font.descent == 3 && font.leading == 1)
-        #expect(font.hasGlyph(for: "\u{14}"))   // the Apple symbol used in "LEVEL "
-        let missing = Set(text.filter { $0 != "\r" && !font.hasGlyph(for: $0) })
-        #expect(missing.isEmpty, "no glyph for \(missing.sorted())")
+    @Test func unknownTextDrawsTheMissingSymbolAndIsReported() {
+        let q = qd(40, 20)
+        q.textSource = .sheet(.stuntCopter)
+        q.MoveTo(2, 14)
+        q.DrawString("7#")   // "7" is in the sheet, "#" isn't
+        #expect(q.textMisses == ["#"])
+        #expect(q.thePort.portBits.pixels.contains(1))
     }
 
     @Test func helpTextWrapsWithinItsRects() throws {
         // The original DITL text has explicit line breaks sized for Chicago 12;
-        // our font must not force extra wrapping.
+        // the sheet's character widths must not force extra wrapping.
         let q = qd()
+        q.textSource = .sheet(.stuntCopter)
         for item in try fork.itemList(129) where item.kind == .staticText {
             let explicit = item.text.split(separator: "\r", omittingEmptySubsequences: false).count
             #expect(q.wrap(item.text, width: item.rect.width).count <= explicit + 1)

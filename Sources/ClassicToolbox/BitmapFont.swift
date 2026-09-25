@@ -1,9 +1,9 @@
 import Foundation
 
 /// A classic Macintosh bitmap font, decoded from a 'FONT' resource
-/// (Inside Macintosh I-227). The only instance used is `.chicago12`: Apple's
-/// Chicago 12 system font, taken from the System 6.0.8 System file
-/// (see Tools/extract_system_font.py).
+/// (Inside Macintosh I-227). The port doesn't ship one: `rsrc-tool text-sheet` uses
+/// Chicago 12 from a System 6 disk (Tools/extract_system_font.py) to pre-render the
+/// game's text into a TextSheet.
 public struct BitmapFont: Sendable {
     public struct Glyph: Sendable {
         /// Width of the glyph image in pixels.
@@ -89,8 +89,4 @@ public struct BitmapFont: Sendable {
         missing = makeGlyph(n - 1) ?? Glyph(width: 0, advance: widMax, xOffset: 0, rows: [])
     }
 
-    public static let chicago12: BitmapFont = {
-        let bytes = [UInt8](Data(base64Encoded: EmbeddedChicago12.base64, options: .ignoreUnknownCharacters)!)
-        return try! BitmapFont(fontResource: bytes)
-    }()
 }

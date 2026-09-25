@@ -7,7 +7,11 @@ import Foundation
 open class QuickDraw {
     public private(set) var thePort: GrafPort
     public var randSeed: Int32 = 1          // InitGraf sets randSeed to 1
-    public var font: BitmapFont = .chicago12
+    /// Where text comes from: a pre-rendered TextSheet (the game), or a real bitmap
+    /// font (only the TextSheet generator needs one).
+    public var textSource: TextSource = .none
+    /// Characters DrawString couldn't find (drawn as missing-symbol boxes).
+    public private(set) var textMisses = Set<Character>()
     /// Returns TickCount (1/60 s). Replaceable for tests.
     public var tickSource: () -> Int
 
@@ -214,11 +218,66 @@ open class QuickDraw {
 
     // MARK: Text (I-171)
 
-    public func StringWidth(_ s: String) -> Int { font.width(of: s, face: thePort.txFace) }
-    public func CharWidth(_ c: Character) -> Int { font.width(of: String(c), face: thePort.txFace) }
+    public var textAscent: Int { textSource.ascent }
+    public var textDescent: Int { textSource.descent }
+    public var textLeading: Int { textSource.leading }
+
+    public func StringWidth(_ s: String) -> Int { textSource.width(of: s, face: thePort.txFace) }
+    public func CharWidth(_ c: Character) -> Int { textSource.width(of: String(c), face: thePort.txFace) }
 
     /// DrawString in srcOr mode at the pen location (the baseline); advances the pen.
     public func DrawString(_ s: String) {
+        switch textSource {
+        case .font(let font): drawString(s, font)
+        case .sheet(let sheet): drawString(s, sheet)
+        case .none: thePort.pnLoc.h += StringWidth(s)
+        }
+    }
+
+    /// Plots a pre-rendered string's pixels at the pen (srcOr semantics).
+    func plot(_ e: TextSheet.Entry, _ sheet: TextSheet) {
+        let bm = thePort.portBits
+        let left = thePort.pnLoc.h + e.xOffset, top = thePort.pnLoc.v - sheet.ascent
+        forEachSpan(Rect(top: top, left: left, bottom: top + sheet.height, right: left + e.width),
+                    in: bm, portClip: true, mask: nil) { y, x0, x1 in
+            for x in x0..<x1 where e.pixel(x - left, y - top) {
+                let i = bm.index(x, y)
+                switch thePort.txMode {
+                case .srcXor: bm.pixels[i] ^= 1
+                case .srcBic: bm.pixels[i] = 0
+                default: bm.pixels[i] = 1
+                }
+            }
+        }
+        thePort.pnLoc.h += e.advance
+    }
+
+    /// DrawString from a TextSheet: the longest pre-rendered piece at each point.
+    func drawString(_ s: String, _ sheet: TextSheet) {
+        let face = thePort.txFace
+        var rest = Substring(s)
+        while let first = rest.first {
+            var found: (TextSheet.Entry, Int)?
+            for len in stride(from: rest.count, through: 1, by: -1) {
+                if let e = sheet.entry(rest.prefix(len), face) { found = (e, len); break }
+            }
+            if let (e, len) = found {
+                plot(e, sheet)
+                rest = rest.dropFirst(len)
+            } else {
+                // Not in the sheet: QuickDraw's missing symbol, an outlined box.
+                textMisses.insert(first)
+                let h = thePort.pnLoc.h, v = thePort.pnLoc.v
+                FrameRect(Rect(top: v - 9, left: h, bottom: v, right: h + 5))
+                thePort.pnLoc = Point(h: h + sheet.width(of: String(first), face: face), v: v)
+                rest = rest.dropFirst()
+            }
+        }
+        thePort.portBits.markChanged()
+    }
+
+    /// DrawString with a real bitmap font (used to generate TextSheets).
+    func drawString(_ s: String, _ font: BitmapFont) {
         let bm = thePort.portBits
         let face = thePort.txFace
         let boldExtra = face.contains(.bold) ? 1 : 0
@@ -276,10 +335,10 @@ open class QuickDraw {
     /// in it, honoring CRs.
     public func TextBox(_ text: String, _ box: Rect) {
         EraseRect(box)
-        let lineHeight = font.ascent + font.descent + font.leading
-        var v = box.top + font.ascent
+        let lineHeight = textAscent + textDescent + textLeading
+        var v = box.top + textAscent
         for line in wrap(text, width: box.width) {
-            if v - font.ascent >= box.bottom { break }
+            if v - textAscent >= box.bottom { break }
             MoveTo(box.left + 1, v)   // TextEdit starts lines one pixel in (matches the original)
             DrawString(line)
             v += lineHeight

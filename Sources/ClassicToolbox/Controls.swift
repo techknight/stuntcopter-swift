@@ -62,7 +62,7 @@ extension QuickDraw {
                 EraseRoundRect(r, oval, oval)
                 FrameRoundRect(r, oval, oval)
                 let w = StringWidth(c.contrlTitle)
-                let baseline = r.top + (r.height - (font.ascent + font.descent)) / 2 + font.ascent
+                let baseline = r.top + (r.height - (textAscent + textDescent)) / 2 + textAscent
                 MoveTo(r.left + (r.width - w) / 2, baseline)
                 DrawString(c.contrlTitle)
                 if c.contrlHilite > 0 && c.contrlHilite < 254 {
@@ -85,7 +85,7 @@ extension QuickDraw {
                 if c.contrlHilite > 0 && c.contrlHilite < 254 {
                     FrameRect(box.insetBy(1, 1))
                 }
-                let baseline = r.top + (r.height - (font.ascent + font.descent)) / 2 + font.ascent
+                let baseline = r.top + (r.height - (textAscent + textDescent)) / 2 + textAscent
                 MoveTo(box.right + 4, baseline)
                 DrawString(c.contrlTitle)
             }

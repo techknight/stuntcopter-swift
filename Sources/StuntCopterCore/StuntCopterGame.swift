@@ -176,6 +176,7 @@ public final class StuntCopterGame: QuickDraw {
         myWindow = GrafPort(size: Rect(top: 0, left: 0, bottom: b.height, right: b.width))
         self.host = host
         super.init(port: myWindow)
+        textSource = .sheet(.stuntCopter)   // the system font (Chicago 12), pre-rendered
     }
 
     /// The window's global position in 1987 (below the menu bar, custom WDEF).

@@ -10,7 +10,8 @@
 #   make golden     re-record the golden snapshot images used by the tests
 #   make reference SYSTEM_IMAGE=<System 6.0.8 Startup.img>
 #                   build an 800K boot floppy that runs the original 1987 StuntCopter
-#   make font SYSTEM_IMAGE=<…>   re-extract Chicago 12 from the System file
+#   make text SYSTEM_IMAGE=<…>   re-render all of the game's text from Chicago 12 in that
+#                   System 6 disk image (the font goes to build/, never into the repo)
 #   (the last two need: python3 -m venv .venv && .venv/bin/pip install machfs)
 
 APP      := build/StuntCopter.app
@@ -19,7 +20,7 @@ ICNS     := build/AppIcon.icns
 TOOL     := .build/debug/rsrc-tool
 ARCHFLAGS ?=
 
-.PHONY: all build test app run universal dump resources golden reference font clean
+.PHONY: all build test app run universal dump resources golden reference text clean
 
 all: build
 
@@ -60,7 +61,6 @@ dump: $(TOOL)
 resources: $(TOOL)
 	$(TOOL) extract original/StuntCopter1.5.AppleDouble $(RSRC)
 	$(TOOL) embed $(RSRC) Sources/StuntCopterCore/EmbeddedResources.swift EmbeddedResources
-	$(TOOL) embed Resources/Chicago12.FONT Sources/ClassicToolbox/EmbeddedChicago12.swift EmbeddedChicago12
 
 golden:
 	RECORD_GOLDEN=1 swift test
@@ -70,10 +70,13 @@ reference:
 	@mkdir -p build/reference
 	.venv/bin/python Tools/make_reference_disk.py "$(SYSTEM_IMAGE)" build/reference/StuntCopter-boot.dsk
 
-font:
-	@test -n "$(SYSTEM_IMAGE)" || (echo "usage: make font SYSTEM_IMAGE=<System Startup.img>"; exit 1)
-	cd Tools && ../.venv/bin/python extract_system_font.py "$(abspath $(SYSTEM_IMAGE))" ../Resources/Chicago12.FONT
-	$(TOOL) embed Resources/Chicago12.FONT Sources/ClassicToolbox/EmbeddedChicago12.swift EmbeddedChicago12
+text:
+	@test -n "$(SYSTEM_IMAGE)" || (echo "usage: make text SYSTEM_IMAGE=<System Startup.img>"; exit 1)
+	@mkdir -p build
+	cd Tools && ../.venv/bin/python extract_system_font.py "$(abspath $(SYSTEM_IMAGE))" ../build/Chicago12.FONT
+	swift build --product rsrc-tool
+	$(TOOL) text-sheet build/Chicago12.FONT $(RSRC) Resources/StuntCopter.textsheet
+	$(TOOL) embed Resources/StuntCopter.textsheet Sources/StuntCopterCore/EmbeddedTextSheet.swift EmbeddedTextSheet
 
 clean:
 	rm -rf .build build
