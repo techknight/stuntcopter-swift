@@ -514,7 +514,12 @@ public final class StuntCopterGame: QuickDraw {
         host?.hideDialogWindow(d)
     }
 
-    func ModalDialog(_ d: ClassicDialog) -> Int { host?.modalDialog(d) ?? 1 }
+    /// ModalDialog: first handles the pending update event (drawing the items over
+    /// anything drawn since ShowWindow), then waits for an item to be hit.
+    func ModalDialog(_ d: ClassicDialog) -> Int {
+        DialogUpdate(d)
+        return host?.modalDialog(d) ?? 1
+    }
 
     func DisplayHelpDialog() {
         ShowWindow(HelpDialog)

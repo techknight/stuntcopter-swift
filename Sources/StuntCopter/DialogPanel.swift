@@ -50,7 +50,11 @@ final class DialogPanel: NSPanel {
         pixelView.onKeyDown = { [weak self] event in
             guard let self else { return false }
             if event.modifierFlags.contains(.command) { return false }
-            let ch: Character = event.keyCode == 76 ? "\u{3}" : (event.characters?.first ?? " ")
+            let ch: Character = switch event.keyCode {
+            case 76: "\u{3}"    // keypad Enter
+            case 53: "\u{1B}"   // Esc
+            default: event.characters?.first ?? " "
+            }
             if let item = game.dialogKey(dialog, ch) {
                 // ModalDialog flashes the button it's returning.
                 if let c = game.GetDItemControl(dialog, item) {

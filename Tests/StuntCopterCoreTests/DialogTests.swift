@@ -43,4 +43,17 @@ import Testing
         game.DoMenuCommand(StuntCopterGame.optionMenu, 2)
         #expect(game.HiScore == 0 && host.hiScore == 0)
     }
+
+    @Test func offscreenDialogDrawsItsOKButtonOverTheBitmap() throws {
+        let (game, _) = try makeGame()
+        game.DoMenuCommand(StuntCopterGame.optionMenu, 6)
+        let d = game.BitMapDialog!
+        let ok = try #require(game.GetDItemControl(d, 1)).contrlRect
+        #expect(ok.intersection(game.OffScreen.bounds) == ok, "the button sits inside the bitmap area")
+        let bm = d.port.portBits
+        // Frame drawn on top, interior erased: the button is visible over the picture.
+        #expect(bm.pixel((ok.left + ok.right) / 2, ok.top) == 1)
+        #expect(bm.pixel(ok.left + 8, ok.top + 3) == 0)
+        #expect(matchesGolden(bm, "offscreen-dialog"))
+    }
 }

@@ -10,6 +10,8 @@ public final class ClassicDialog {
     public private(set) var controls: [Int: Control] = [:]
     var icons: [Int: BitMap] = [:]
     public var visible = false
+    /// ShowWindow queued an update event; the items are drawn when ModalDialog runs.
+    public internal(set) var needsUpdate = false
     var tracking: Int?
 
     public init(id: Int, resources: ResourceFork) throws {
@@ -52,10 +54,22 @@ extension QuickDraw {
 
     public func GetDItemRect(_ d: ClassicDialog, _ item: Int) -> Rect { d.items[item - 1].rect }
 
-    /// ShowWindow for a dialog: the Window Manager erases the content, and the
-    /// first update draws the items.
+    /// ShowWindow for a dialog: the Window Manager erases the content and queues an
+    /// update event. Nothing else is drawn yet, so anything the application draws
+    /// before calling ModalDialog ends up *under* the items (see `DialogUpdate`).
     public func ShowDialog(_ d: ClassicDialog) {
         d.visible = true
+        let saved = thePort
+        SetPort(d.port)
+        EraseRect(d.port.portRect)
+        SetPort(saved)
+        d.needsUpdate = true
+    }
+
+    /// The update event ModalDialog handles first: DrawDialog over whatever is there.
+    public func DialogUpdate(_ d: ClassicDialog) {
+        guard d.needsUpdate else { return }
+        d.needsUpdate = false
         DrawDialog(d)
     }
 
@@ -69,7 +83,6 @@ extension QuickDraw {
         SetPort(d.port)
         let savedFace = thePort.txFace
         TextFace([])
-        EraseRect(d.port.portRect)
         for (i, item) in d.items.enumerated() {
             let n = i + 1
             if let c = d.controls[n] {
@@ -110,8 +123,9 @@ extension QuickDraw {
         return c.contrlRect.contains(pt) ? n : nil
     }
 
-    /// Return or Enter selects item 1, as ModalDialog does.
+    /// Return or Enter selects item 1, as ModalDialog does. (Esc does too: a modern
+    /// addition, and item 1 closes every StuntCopter dialog.)
     public func dialogKey(_ d: ClassicDialog, _ char: Character) -> Int? {
-        (char == "\r" || char == "\u{3}") ? 1 : nil
+        (char == "\r" || char == "\u{3}" || char == "\u{1B}") ? 1 : nil
     }
 }

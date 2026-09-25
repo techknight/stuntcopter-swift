@@ -272,8 +272,10 @@ open class QuickDraw {
         thePort.pnLoc.h = h
     }
 
-    /// TextBox (I-388): word-wrapped, left-justified text in a rect, honoring CRs.
+    /// TextBox (I-388): erases the box, then draws word-wrapped, left-justified text
+    /// in it, honoring CRs.
     public func TextBox(_ text: String, _ box: Rect) {
+        EraseRect(box)
         let lineHeight = font.ascent + font.descent + font.leading
         var v = box.top + font.ascent
         for line in wrap(text, width: box.width) {
