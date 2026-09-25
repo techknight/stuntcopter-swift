@@ -7,6 +7,8 @@ Fly the copter over the hay wagon and click to drop the stuntman. Land all five
 men in the hay to advance a level. Your score is the drop height times the current level.
 Don't land on the driver or the horse!
 
+<img src="docs/screenshot.png" width="503" alt="StuntCopter running on macOS: the copter flies high as the stuntman falls toward the hay wagon, with a cloud drifting in and the score box below">
+
 ## How faithful is it?
 
 - **The game logic is Blehm's Pascal, translated line by line.** Blehm's source is in
