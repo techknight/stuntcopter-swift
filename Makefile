@@ -4,6 +4,12 @@
 #   make app        release build → build/StuntCopter.app (ad-hoc signed)
 #   make run        build and open the app
 #   make universal  like `make app`, but arm64 + x86_64
+#   make release    universal app, signed with your Developer ID (hardened runtime),
+#                   notarized and stapled → build/StuntCopter-<version>.zip
+#                   Local notarization uses a notarytool keychain profile, created once:
+#                     xcrun notarytool store-credentials stuntcopter-notary \
+#                       --key AuthKey_XXXX.p8 --key-id XXXX --issuer <issuer UUID>
+#                   CI passes NOTARY_ARGS="--key … --key-id … --issuer …" instead.
 #   make dump       write every PICT/RGN/icon resource as PNG into build/dump
 #   make resources  re-extract Resources/StuntCopter.rsrc from the original AppleDouble
 #                   and regenerate Sources/StuntCopterCore/EmbeddedResources.swift
@@ -15,12 +21,17 @@
 #   (the last two need: python3 -m venv .venv && .venv/bin/pip install machfs)
 
 APP      := build/StuntCopter.app
+VERSION  := $(shell /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Support/Info.plist)
+ZIP      := build/StuntCopter-$(VERSION).zip
+SIGN_IDENTITY  ?= Developer ID Application
+NOTARY_PROFILE ?= stuntcopter-notary
+NOTARY_ARGS    ?= --keychain-profile $(NOTARY_PROFILE)
 RSRC     := Resources/StuntCopter.rsrc
 ICNS     := build/AppIcon.icns
 TOOL     := .build/debug/rsrc-tool
 ARCHFLAGS ?=
 
-.PHONY: all build test app run universal dump resources golden reference text clean
+.PHONY: all build test app run release universal dump resources golden reference text clean
 
 all: build
 
@@ -54,6 +65,19 @@ universal:
 
 run: app
 	open $(APP)
+
+release:
+	$(MAKE) universal
+	codesign --force --options runtime --timestamp --sign "$(SIGN_IDENTITY)" $(APP)
+	codesign --verify --strict --verbose=2 $(APP)
+	@rm -f $(ZIP)
+	ditto -c -k --keepParent $(APP) $(ZIP)
+	xcrun notarytool submit $(ZIP) $(NOTARY_ARGS) --wait
+	xcrun stapler staple $(APP)
+	@rm -f $(ZIP)
+	ditto -c -k --keepParent $(APP) $(ZIP)
+	spctl --assess --type execute -vv $(APP)
+	@echo "Release: $(ZIP)"
 
 dump: $(TOOL)
 	$(TOOL) dump $(RSRC) build/dump

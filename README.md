@@ -57,6 +57,12 @@ Don't land on the driver or the horse!
   to the plate's shape. The `ICN#`'s "mask" half isn't a real silhouette, so it's
   ignored.
 
+## Download
+
+Signed and notarized builds for macOS 14 or later (Apple silicon and Intel) are on
+the [Releases](https://github.com/techknight/stuntcopter-swift/releases) page.
+Unzip the download and open StuntCopter.app.
+
 ## Build and run
 
 Requirements: macOS 14 or later, and Xcode (or the Command Line Tools) with Swift 6.
@@ -65,6 +71,7 @@ Requirements: macOS 14 or later, and Xcode (or the Command Line Tools) with Swif
 make run          # release build → build/StuntCopter.app, then open it
 make test         # unit, gameplay and golden-image tests
 make universal    # arm64 + x86_64 app
+make release      # universal, Developer ID–signed, notarized zip (see Makefile)
 swift run StuntCopter   # run straight from SwiftPM
 ```
 

@@ -1,0 +1,82 @@
+# Builds a universal StuntCopter.app, signs it with the Developer ID certificate,
+# notarizes and staples it, and publishes the zip.
+#   - Push a tag like v1.5.1 → a GitHub Release with StuntCopter-<version>.zip.
+#   - Run manually (Actions ▸ Release ▸ Run workflow) → the zip as a build artifact.
+#
+# Repository secrets:
+#   MACOS_CERTIFICATE_P12       base64 of the Developer ID Application .p12
+#   MACOS_CERTIFICATE_PASSWORD  its password
+#   NOTARY_KEY_P8               base64 of the App Store Connect API key (.p8)
+#   NOTARY_KEY_ID               the key's ID
+#   NOTARY_ISSUER_ID            the App Store Connect issuer UUID
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Test
+        run: swift test
+
+      - name: Import signing certificate
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "$MACOS_CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$MACOS_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          rm "$RUNNER_TEMP/certificate.p12"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          security find-identity -v -p codesigning "$KEYCHAIN"
+
+      - name: Build, sign, notarize
+        env:
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+        run: |
+          echo "$NOTARY_KEY_P8" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          make release NOTARY_ARGS="--key $RUNNER_TEMP/AuthKey.p8 --key-id $NOTARY_KEY_ID --issuer $NOTARY_ISSUER_ID"
+          rm "$RUNNER_TEMP/AuthKey.p8"
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" build/StuntCopter-*.zip \
+            --title "StuntCopter $GITHUB_REF_NAME" \
+            --notes "Universal (Apple silicon and Intel) build for macOS 14 or later, signed and notarized. Unzip and open StuntCopter.app."
+
+      - name: Upload build artifact
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: StuntCopter
+          path: build/StuntCopter-*.zip
+
+      - name: Clean up keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
