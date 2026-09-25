@@ -1,3 +1,4 @@
+import AVFoundation
 import ClassicToolbox
 import Foundation
 @testable import StuntCopterCore
@@ -118,6 +119,89 @@ import Testing
         host.mouse = Point(h: 256, v: 170)   // centered stick: copter hovers
         for _ in 0..<3 { game.tick() }
         #expect(drop(game, landingOffset: offset) == expected)
+    }
+
+    /// Runs the game and its Sound Driver together in simulated real time: each loop
+    /// takes 1/(30 × loopRateFactor) s, like the 1987 loop on a Mac Plus. Returns the
+    /// synthesizer that was sounding, sampled every millisecond.
+    func runWithAudio(_ game: StuntCopterGame, _ host: FakeHost, seconds: Double) -> [SoundDriver.Synth] {
+        var timeline: [SoundDriver.Synth] = []
+        var t = 0.0, audioT = 0.0
+        let msSamples = SoundDriver.nativeRate / 1000
+        var scratch = [Float](repeating: 0, count: 64)
+        while t < seconds {
+            game.tick()
+            t += 1 / (30 * game.loopRateFactor)
+            host.ticks = Int(t * 60)
+            while audioT < t {
+                scratch.withUnsafeMutableBufferPointer {
+                    game.soundDriver.render(into: $0.baseAddress!, frames: Int(msSamples.rounded()), outputRate: SoundDriver.nativeRate)
+                }
+                timeline.append(game.soundDriver.currentSynth)
+                audioT += 0.001
+            }
+        }
+        return timeline
+    }
+
+    @Test func landingFanfarePlaysEachNoteOnceWithGapsLikeTheOriginal() throws {
+        let (game, host) = try makeGame()
+        begin(game)
+        for _ in 0..<3 { game.tick() }
+        #expect(drop(game, landingOffset: 10) == 1)
+        let timeline = runWithAudio(game, host, seconds: 2.5)
+        // Collapse to runs of four-tone sound.
+        var runs: [(start: Int, length: Int)] = []
+        var i = 0
+        while i < timeline.count {
+            if timeline[i] == .fourTone {
+                var j = i
+                while j < timeline.count && timeline[j] == .fourTone { j += 1 }
+                runs.append((i, j - i))
+                i = j
+            } else { i += 1 }
+        }
+        // Notes of 10, 5, 5 and 20 ticks; the second FlipSound[4] has duration 0 (the
+        // driver used it up), so the last chord is not repeated.
+        #expect(runs.map { Int((Double($0.length) / (1000.0 / 60)).rounded()) } == [10, 5, 5, 20])
+        // Gaps between notes: in the original on a Mac Plus, ~10–55 ms (mean ~30).
+        let gaps = zip(runs, runs.dropFirst()).map { $1.start - ($0.start + $0.length) }
+        #expect(gaps.allSatisfy { $0 >= 1 && $0 <= 75 }, "gaps \(gaps) ms")
+        // Then the copter engine comes back.
+        if let last = runs.last {
+            #expect(timeline[(last.start + last.length)...].contains(.freeForm))
+        }
+    }
+
+    /// For listening/comparing: FANFARE_WAV=out.wav swift test --filter renderFanfareWAV
+    /// (LANDING_OFFSET=-20 renders a splat instead: a miss).
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["FANFARE_WAV"] != nil))
+    func renderFanfareWAV() throws {
+        let (game, host) = try makeGame()
+        begin(game)
+        // Let the copter engine get going first, as in a real game.
+        for _ in 0..<30 { game.tick() }
+        _ = drop(game, landingOffset: Int(ProcessInfo.processInfo.environment["LANDING_OFFSET"] ?? "10")!)
+        var samples: [Float] = []
+        var t = 0.0, audioT = 0.0
+        var chunk = [Float](repeating: 0, count: 48)
+        while t < 2.5 {
+            game.tick()
+            t += 1 / (30 * game.loopRateFactor)
+            host.ticks = Int(t * 60)
+            while audioT < t {
+                chunk.withUnsafeMutableBufferPointer { game.soundDriver.render(into: $0.baseAddress!, frames: 48, outputRate: 48_000) }
+                samples += chunk
+                audioT += 0.001
+            }
+        }
+        let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samples.count))!
+        buffer.frameLength = AVAudioFrameCount(samples.count)
+        for (i, v) in samples.enumerated() { buffer.floatChannelData![0][i] = v }
+        let file = try AVAudioFile(forWriting: URL(fileURLWithPath: ProcessInfo.processInfo.environment["FANFARE_WAV"]!),
+                                   settings: format.settings)
+        try file.write(from: buffer)
     }
 
     @Test func successfulLandingScoresHeightTimesLevel() throws {

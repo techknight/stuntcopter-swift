@@ -229,6 +229,33 @@ let fork = try! ResourceFork(forkData: EmbeddedResources.stuntCopterFork)
         #expect(d.isDone)
     }
 
+    @Test func fourToneCountsDurationDownAndTickWaitsStartOnATick() {
+        let d = SoundDriver()
+        let square = (0..<256).map { $0 < 128 ? UInt8(255) : 0 }
+        let rec = SoundDriver.FourTone(duration: 3, rates: [65536, 0, 0, 0], phases: [0, 0, 0, 0],
+                                       waves: [square, square, square, square])
+        var buf = [Float](repeating: 0, count: 100)
+        d.write(rec)
+        #expect(d.fourToneTicksRemaining == 3)
+        buf.withUnsafeMutableBufferPointer { d.render(into: $0.baseAddress!, frames: 100, outputRate: SoundDriver.nativeRate) }
+        #expect(d.fourToneTicksRemaining == 3)   // partway through the first tick
+        d.kill()
+        #expect(d.fourToneTicksRemaining == 3 && d.isDone)
+        // A zero-duration record (what the driver leaves behind) plays nothing.
+        var used = rec
+        used.duration = 0
+        d.write(used)
+        buf.withUnsafeMutableBufferPointer { d.render(into: $0.baseAddress!, frames: 2, outputRate: SoundDriver.nativeRate) }
+        #expect(d.isDone && d.fourToneTicksRemaining == 0)
+        // After "wait a tick", the sound starts on the next tick boundary.
+        d.write(rec, atNextTick: true)
+        #expect(!d.isDone && d.currentSynth == .idle)
+        let toBoundary = Int(SoundDriver.samplesPerTick) + 2
+        var big = [Float](repeating: 0, count: toBoundary)
+        big.withUnsafeMutableBufferPointer { d.render(into: $0.baseAddress!, frames: toBoundary, outputRate: SoundDriver.nativeRate) }
+        #expect(d.currentSynth == .fourTone)
+    }
+
     @Test func fourToneLastsItsDuration() {
         let d = SoundDriver()
         let square = (0..<256).map { $0 < 128 ? UInt8(255) : 0 }

@@ -130,6 +130,7 @@ public final class StuntCopterGame: QuickDraw {
     var SplatSound: SoundDriver.FreeForm!
     var FlipSound: [SoundDriver.FourTone] = []  // {four FourTone Sounds}
     var FlipSynthSndRec = 1                     // {FlipSynth^.sndRec: which FlipSound}
+    var soundingFlipRec: Int?                   // the FlipSound the driver is counting down
     enum SoundBuffer { case copt, splat, flipSynth }
     var SoundParmBlk = (iobuffer: SoundBuffer.copt, ioreqcount: 0)   // {used for PBWrite}
     var WhichSound = 0                          // {which sound is being played?}
@@ -149,11 +150,19 @@ public final class StuntCopterGame: QuickDraw {
 
     /// How fast the main loop should run relative to the in-game baseline. The 1987
     /// loop was CPU-bound; timed on an emulated Mac Plus (Tools/measure_wagon.swift) it
-    /// did ~30 loops/s in play and ~60 in the lighter attract/pause loop. Blehm notes
-    /// "freeform sound slows the program by about 20%", so play is faster with sound off.
+    /// did ~30 loops/s in play, with the copter's free-form sound running, and ~60 in
+    /// the lighter attract/pause loop. The Sound Driver's synthesizers ran on the same
+    /// CPU: free-form took about 20% of it and four-tone about 50% (IM II-223; Blehm:
+    /// "freeform sound slows the program by about 20%"). So play speeds up with sound
+    /// off and slows to ~5/8 while the landing fanfare plays, which also spaces its notes.
     public var loopRateFactor: Double {
-        let native = GameUnderWay ? (SoundOn ? 1.0 : 1.2) : 2.0
-        return native * speedMultiplier
+        guard GameUnderWay else { return 2.0 * speedMultiplier }
+        let cpuUsed: Double = switch soundDriver.currentSynth {
+        case .fourTone: 0.5
+        case .freeForm: 0.2
+        case .idle: 0
+        }
+        return (1 - cpuUsed) / (1 - 0.2) * speedMultiplier
     }
 
     /// Window content size (from the 'WIND' resource).
@@ -296,15 +305,30 @@ public final class StuntCopterGame: QuickDraw {
     }
 
     /// PBWrite(SoundParmBlk, true): start whatever the parameter block points at.
-    func PBWrite() {
+    /// `afterTickWait` is the main loop's "wait a tick before PBWrite", which makes the
+    /// sound begin on the next 1/60 s boundary.
+    func PBWrite(afterTickWait: Bool = false) {
         switch SoundParmBlk.iobuffer {
-        case .copt: soundDriver.write(CoptSound, reqCount: SoundParmBlk.ioreqcount)
-        case .splat: soundDriver.write(SplatSound, reqCount: SoundParmBlk.ioreqcount)
-        case .flipSynth: soundDriver.write(FlipSound[FlipSynthSndRec])
+        case .copt: soundDriver.write(CoptSound, reqCount: SoundParmBlk.ioreqcount, atNextTick: afterTickWait)
+        case .splat: soundDriver.write(SplatSound, reqCount: SoundParmBlk.ioreqcount, atNextTick: afterTickWait)
+        case .flipSynth:
+            soundDriver.write(FlipSound[FlipSynthSndRec], atNextTick: afterTickWait)
+            soundingFlipRec = FlipSynthSndRec
         }
     }
 
-    func PBKillIO() { soundDriver.kill() }
+    func PBKillIO() {
+        soundDriver.kill()
+        SyncFlipDuration()
+    }
+
+    /// The driver decrements a four-tone record's duration as it plays; copy what it
+    /// left back into our FlipSound record once that sound has ended or been killed.
+    func SyncFlipDuration() {
+        guard let r = soundingFlipRec else { return }
+        FlipSound[r].duration = soundDriver.fourToneTicksRemaining
+        soundingFlipRec = nil
+    }
 
     func CreateWindow() {   // {windows,dialogs, and controls}
         HelpDialog = try? ClassicDialog(id: HelpId, resources: resources)
@@ -1389,6 +1413,7 @@ public final class StuntCopterGame: QuickDraw {
 
             // {sound stuff... ioresult will be <1 if sound is finished}
             if soundDriver.isDone {   // {only if sound is done}
+                SyncFlipDuration()
                 if GameUnderWay && SoundOn {   // {animate loop might end game}
                     switch WhichSound {
                     case 0:   // {reset copterSound}
@@ -1402,7 +1427,8 @@ public final class StuntCopterGame: QuickDraw {
                     default:
                         break
                     }
-                    PBWrite()   // {start the sound}
+                    // {repeat until (TickCount > aTick); wait a tick,just in case}
+                    PBWrite(afterTickWait: true)   // {start the sound}
                 }
             }
         } else {   // {game is not underway..waiting for a begin or resume}

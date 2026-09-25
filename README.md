@@ -92,6 +92,12 @@ Two more tools help with comparisons:
   across a series of timestamped emulator screenshots.
 - `Tools/diff_frames.swift` overlays an emulator screenshot on a port frame and
   colors the pixels that differ.
+- `Tools/record_app_audio.swift` records one app's audio with ScreenCaptureKit, and
+  `Tools/analyze_audio.swift` finds the tonal and silent stretches in a recording.
+  Measuring the original's landing fanfare this way showed two things. The last chord
+  plays only once, because the Sound Driver counts `duration` down to 0. And the notes
+  are spaced 10–55 ms apart, because the four-tone synth takes half the CPU and the
+  game waits a tick before each `PBWrite`.
 
 The port's attract-mode frames match the original **pixel for pixel**. That
 covers the title text and underline, the cloud, the BEGIN button, the score box,

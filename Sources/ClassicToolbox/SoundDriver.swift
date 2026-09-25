@@ -38,11 +38,19 @@ public final class SoundDriver: @unchecked Sendable {
         }
     }
 
-    private enum Mode { case idle, freeForm, fourTone }
+    /// Which synthesizer is producing sound. The four-tone synthesizer "requires about
+    /// 50% of the microprocessor's attention" and free-form about 20% (IM II-223), so
+    /// this also tells how much CPU the 1987 game had left.
+    public enum Synth: Sendable { case idle, freeForm, fourTone }
+
+    private enum Mode { case idle, freeForm, fourTone, pending }
 
     private let lock = NSLock()
     // Synth state lives in plain stored properties so the audio thread never allocates.
     private var mode = Mode.idle
+    private var pendingMode = Mode.idle
+    private var startAt: Double?          // native sample index a pending write begins at
+    private var sampleClock: Double = 0   // native samples since the driver started
     private var ffWave: [UInt8] = []
     private var ffLength = 0
     private var ffPos = 0
@@ -64,31 +72,49 @@ public final class SoundDriver: @unchecked Sendable {
 
     /// PBWrite with a free-form record whose ioReqCount was `reqCount` bytes
     /// (the 6-byte mode/count header is included in the request count).
-    public func write(_ ff: FreeForm, reqCount: Int) {
+    /// `atNextTick` models StuntCopter's "wait a tick before PBWrite" loop: the sound
+    /// begins at the next 1/60 s boundary.
+    public func write(_ ff: FreeForm, reqCount: Int, atNextTick: Bool = false) {
         lock.withLock {
             ffWave = ff.waveBytes
             ffLength = min(ff.waveBytes.count, max(0, reqCount - 6))
             ffPos = 0
             ffStep = ff.count
-            mode = .freeForm
+            begin(.freeForm, atNextTick)
         }
     }
 
-    public func write(_ ft: FourTone) {
+    public func write(_ ft: FourTone, atNextTick: Bool = false) {
         lock.withLock {
             ftWaves = ft.waves
             for v in 0..<4 {
                 ftRates[v] = ft.rates[v]
                 ftPhase[v] = ft.phases[v] << 16
             }
-            ftRemaining = Int((Double(ft.duration) * SoundDriver.samplesPerTick).rounded())
-            mode = .fourTone
+            ftRemaining = Int((Double(max(0, ft.duration)) * SoundDriver.samplesPerTick).rounded())
+            begin(.fourTone, atNextTick)
+        }
+    }
+
+    /// Lock held.
+    private func begin(_ m: Mode, _ atNextTick: Bool) {
+        if atNextTick {
+            let spt = SoundDriver.samplesPerTick
+            startAt = ((sampleClock / spt).rounded(.down) + 1) * spt
+            pendingMode = m
+            mode = .pending
+        } else {
+            startAt = nil
+            mode = m
         }
     }
 
     /// PBKillIO: stop whatever is playing.
     public func kill() {
-        lock.withLock { mode = .idle }
+        lock.withLock {
+            mode = .idle
+            startAt = nil
+        }
     }
 
     /// True once the last write has finished (ioResult < 1).
@@ -96,10 +122,35 @@ public final class SoundDriver: @unchecked Sendable {
         lock.withLock { mode == .idle }
     }
 
+    /// The synthesizer currently producing sound (a write waiting for its tick counts as idle).
+    public var currentSynth: Synth {
+        lock.withLock {
+            switch mode {
+            case .freeForm: return .freeForm
+            case .fourTone: return .fourTone
+            default: return .idle
+            }
+        }
+    }
+
+    /// The four-tone record's duration field as the driver has left it: the driver
+    /// counts it down while the sound plays, so a finished sound leaves 0 (IM II-227;
+    /// StuntCopter relies on this: "the duration field must be reset after each
+    /// flipsound as the driver decrements its value").
+    public var fourToneTicksRemaining: Int {
+        // (ticks are stored as a rounded sample count, so allow for that rounding)
+        lock.withLock { max(0, Int((Double(ftRemaining) / SoundDriver.samplesPerTick - 0.01).rounded(.up))) }
+    }
+
     /// Advances the synthesizer one native sample (lock held).
     private func step() -> Double {
+        sampleClock += 1
+        if let at = startAt, sampleClock >= at {
+            startAt = nil
+            mode = pendingMode
+        }
         switch mode {
-        case .idle:
+        case .idle, .pending:
             return 128
         case .freeForm:
             let i = ffPos >> 16
