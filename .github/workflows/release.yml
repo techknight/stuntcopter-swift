@@ -1,6 +1,6 @@
 # Builds a universal StuntCopter.app, signs it with the Developer ID certificate,
 # notarizes and staples it, and publishes the zip.
-#   - Push a tag like v1.5.1 → a GitHub Release with StuntCopter-<version>.zip.
+#   - Push a tag like v1.0.0 → a GitHub Release with StuntCopter-<version>.zip.
 #   - Run manually (Actions ▸ Release ▸ Run workflow) → the zip as a build artifact.
 #
 # Repository secrets:
@@ -67,8 +67,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" build/StuntCopter-*.zip \
-            --title "StuntCopter $GITHUB_REF_NAME" \
-            --notes "Universal (Apple silicon and Intel) build for macOS 14 or later, signed and notarized. Unzip and open StuntCopter.app."
+            --title "StuntCopter 1.5 for macOS, $GITHUB_REF_NAME" \
+            --notes "Duane Blehm's StuntCopter 1.5 (1987), ported to modern macOS. Universal (Apple silicon and Intel) build for macOS 14 or later, signed and notarized: unzip and open StuntCopter.app."
 
       - name: Upload build artifact
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
