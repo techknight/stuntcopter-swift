@@ -70,8 +70,10 @@ extension QuickDraw {
                 }
             case .radioButton, .checkBox:
                 EraseRect(r)
-                let box = Rect(top: r.top + (r.height - 12) / 2, left: r.left + 2,
-                               bottom: r.top + (r.height - 12) / 2 + 12, right: r.left + 14)
+                // The 12-pixel box is centered with any odd pixel above it (measured on
+                // the original: rows 65..<84 → box at 69, 106..<129 → 112).
+                let boxTop = r.top + (r.height - 11) / 2
+                let box = Rect(top: boxTop, left: r.left + 2, bottom: boxTop + 12, right: r.left + 14)
                 if c.kind == .radioButton {
                     FrameOval(box)
                     if c.contrlValue != 0 { PaintOval(box.insetBy(3, 3)) }

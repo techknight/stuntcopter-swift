@@ -345,8 +345,8 @@ open class QuickDraw {
         }
     }
 
-    /// Splits text into lines no wider than `width` (counting each word's trailing
-    /// spaces), breaking at spaces and CRs.
+    /// Splits text into lines narrower than `width` (ignoring trailing spaces),
+    /// breaking at spaces and CRs.
     public func wrap(_ text: String, width: Int) -> [String] {
         var lines: [String] = []
         for para in text.split(separator: "\r", omittingEmptySubsequences: false) {
@@ -359,9 +359,11 @@ open class QuickDraw {
                 while j < para.endIndex && para[j] == " " { j = para.index(after: j) }
                 let word = String(para[i..<j])
                 let candidate = line + word
-                // Like TextEdit, a word is measured with its trailing spaces: in the About
-                // box "…$18.00 plus" is exactly the box width, and the original still wraps.
-                if !line.isEmpty && StringWidth(candidate) > width {
+                // TextEdit draws lines one pixel in, so a line fits only if its width
+                // (trailing spaces may hang past the edge) is less than the box width.
+                // Measured on the original: in the About box "…$18.00 plus" is exactly
+                // the box width and wraps; in Source Code "…expense.   " fits.
+                if !line.isEmpty && StringWidth(trimTrailingSpaces(candidate)) >= width {
                     lines.append(line)
                     line = word
                 } else {
@@ -372,5 +374,11 @@ open class QuickDraw {
             lines.append(line)
         }
         return lines
+    }
+
+    private func trimTrailingSpaces(_ s: String) -> String {
+        var t = Substring(s)
+        while t.last == " " { t = t.dropLast() }
+        return String(t)
     }
 }

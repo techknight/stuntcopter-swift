@@ -1,4 +1,5 @@
 import ClassicToolbox
+import Foundation
 @testable import StuntCopterCore
 import Testing
 
@@ -87,5 +88,22 @@ import Testing
         #expect(sheet.ascent == 12 && sheet.descent == 3 && sheet.leading == 1)
         let bytes = sheet.encoded()
         #expect(try TextSheet(data: bytes).encoded() == bytes)
+    }
+
+    /// For comparing with the original in an emulator: writes each Options dialog, as it
+    /// first appears over the title screen, to DIALOG_DUMP_DIR/<name>.pbm.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["DIALOG_DUMP_DIR"] != nil))
+    func dumpDialogs() throws {
+        let dir = ProcessInfo.processInfo.environment["DIALOG_DUMP_DIR"]!
+        let (game, _) = try makeGame()
+        for _ in 0..<30 { game.tick() }
+        let dialogs: [(item: Int, name: String, dialog: () -> ClassicDialog)] = [
+            (3, "help", { game.HelpDialog }), (4, "speed", { game.SpeedDialog }),
+            (5, "source", { game.SourceDialog }), (6, "offscreen", { game.BitMapDialog }),
+        ]
+        for d in dialogs {
+            game.DoMenuCommand(StuntCopterGame.optionMenu, d.item)   // FakeHost answers item 1
+            try pbmData(d.dialog().port.portBits).write(to: URL(fileURLWithPath: "\(dir)/\(d.name).pbm"))
+        }
     }
 }

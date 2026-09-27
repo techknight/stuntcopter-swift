@@ -95,12 +95,18 @@ public func PtInRect(_ pt: Point, _ r: Rect) -> Bool {
     r.contains(pt)
 }
 
-/// MapPt (I-193): maps a point from srcRect's coordinate space into dstRect's.
-/// Integer arithmetic truncating toward zero, like the ROM's FixRatio/FixRound path
-/// for the values StuntCopter feeds it.
+/// MapPt (I-193): maps a point from srcRect's coordinate space into dstRect's,
+/// rounding to the nearest pixel. (Measured on the original: with the mouse at h = 253,
+/// (253 − 210) × 8 / 92 = 3.74 must map to 4 — the copter holds still — not 3.)
 public func MapPt(_ pt: inout Point, _ srcRect: Rect, _ dstRect: Rect) {
-    pt.h = (pt.h - srcRect.left) * dstRect.width / srcRect.width + dstRect.left
-    pt.v = (pt.v - srcRect.top) * dstRect.height / srcRect.height + dstRect.top
+    pt.h = dstRect.left + roundedRatio((pt.h - srcRect.left) * dstRect.width, srcRect.width)
+    pt.v = dstRect.top + roundedRatio((pt.v - srcRect.top) * dstRect.height, srcRect.height)
+}
+
+/// a / b rounded to the nearest integer (halves away from zero).
+func roundedRatio(_ a: Int, _ b: Int) -> Int {
+    let q = Double(a) / Double(b)
+    return Int(q.rounded(.toNearestOrAwayFromZero))
 }
 
 public func HiWord(_ x: Int) -> Int { (x >> 16) & 0xFFFF }

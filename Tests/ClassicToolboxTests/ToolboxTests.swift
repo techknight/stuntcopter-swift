@@ -121,13 +121,18 @@ let fork = try! ResourceFork(forkData: EmbeddedResources.stuntCopterFork)
         #expect((0..<8).map { _ in q.Random() } == [16807, 15089, -21287, 3114, -18558, -9528, -28968, 2558])
     }
 
-    @Test func mapPtAtMouseRectCornersAndCenter() {
+    @Test func mapPtRoundsToNearest() {
         let src = Rect(left: 210, top: 134, right: 302, bottom: 206)
         let dst = Rect(left: -4, top: -3, right: 4, bottom: 4)
         func map(_ h: Int, _ v: Int) -> Point { var p = Point(h: h, v: v); MapPt(&p, src, dst); return p }
         #expect(map(210, 134) == Point(h: -4, v: -3))
         #expect(map(302, 206) == Point(h: 4, v: 4))
-        #expect(map(256, 170) == Point(h: 0, v: 0))
+        // Measured on the original: a stick at (253, 166) keeps the copter still
+        // (h: 3.74 → 4, not 3).
+        #expect(map(253, 166) == Point(h: 0, v: 0))
+        // v = 170 is the one exact half (3.5); rounded up like FixRound (not yet
+        // confirmed against the original).
+        #expect(map(256, 170) == Point(h: 0, v: 1))
     }
 
     @Test func regionOperations() {
