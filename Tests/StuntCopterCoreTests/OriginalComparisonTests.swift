@@ -1,7 +1,5 @@
 import ClassicToolbox
-import CoreGraphics
 import Foundation
-import ImageIO
 @testable import StuntCopterCore
 import Testing
 
@@ -24,12 +22,7 @@ import Testing
     }
 
     func originalScreen(at url: URL, _ r: Rect) throws -> [[UInt8]] {
-        let src = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
-        let img = try #require(CGImageSourceCreateImageAtIndex(src, 0, nil))
-        var gray = [UInt8](repeating: 0, count: img.width * img.height)
-        let ctx = try #require(CGContext(data: &gray, width: img.width, height: img.height, bitsPerComponent: 8,
-                                         bytesPerRow: img.width, space: CGColorSpaceCreateDeviceGray(), bitmapInfo: 0))
-        ctx.draw(img, in: CGRect(x: 0, y: 0, width: img.width, height: img.height))
+        let img = try PNG.decode(contentsOf: url), gray = img.gray
         return (r.top..<r.bottom).map { y in (r.left..<r.right).map { x in gray[y * img.width + x] < 128 ? 1 : 0 } }
     }
 

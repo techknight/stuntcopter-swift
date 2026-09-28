@@ -1,4 +1,3 @@
-import AVFoundation
 import ClassicToolbox
 import Foundation
 @testable import StuntCopterCore
@@ -202,13 +201,8 @@ import Testing
                 audioT += 0.001
             }
         }
-        let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
-        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samples.count))!
-        buffer.frameLength = AVAudioFrameCount(samples.count)
-        for (i, v) in samples.enumerated() { buffer.floatChannelData![0][i] = v }
-        let file = try AVAudioFile(forWriting: URL(fileURLWithPath: ProcessInfo.processInfo.environment["FANFARE_WAV"]!),
-                                   settings: format.settings)
-        try file.write(from: buffer)
+        try wavData(samples, sampleRate: 48_000)
+            .write(to: URL(fileURLWithPath: ProcessInfo.processInfo.environment["FANFARE_WAV"]!))
     }
 
     @Test func successfulLandingScoresHeightTimesLevel() throws {

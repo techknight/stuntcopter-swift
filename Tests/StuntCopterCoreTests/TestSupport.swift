@@ -1,9 +1,6 @@
 import ClassicToolbox
-import CoreGraphics
 import Foundation
-import ImageIO
 @testable import StuntCopterCore
-import UniformTypeIdentifiers
 
 /// A scriptable stand-in for the AppKit shell.
 @MainActor
@@ -66,13 +63,7 @@ func writePNG(_ bm: BitMap, to url: URL, scale: Int = 2) {
     for y in 0..<h {
         for x in 0..<w where bm.pixels[(y / scale) * bm.width + x / scale] == 0 { gray[y * w + x] = 255 }
     }
-    let provider = CGDataProvider(data: Data(gray) as CFData)!
-    let image = CGImage(width: w, height: h, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: w,
-                        space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGBitmapInfo(rawValue: 0),
-                        provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)!
-    let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil)!
-    CGImageDestinationAddImage(dest, image, nil)
-    CGImageDestinationFinalize(dest)
+    try? PNG.encodeGray(width: w, height: h, gray: gray).write(to: url)
 }
 
 let goldenDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Golden")
@@ -93,4 +84,16 @@ func matchesGolden(_ bm: BitMap, _ name: String) -> Bool {
     }
     guard let golden = try? Data(contentsOf: url) else { return false }
     return golden == data
+}
+
+/// Mono 32-bit float WAV, the format AVAudioFile wrote for these samples.
+func wavData(_ samples: [Float], sampleRate: Int) -> Data {
+    func le32(_ v: Int) -> [UInt8] { (0..<4).map { UInt8(v >> (8 * $0) & 0xFF) } }
+    func le16(_ v: Int) -> [UInt8] { (0..<2).map { UInt8(v >> (8 * $0) & 0xFF) } }
+    let dataBytes = samples.count * 4
+    var d = Array("RIFF".utf8) + le32(36 + dataBytes) + Array("WAVEfmt ".utf8) + le32(16)
+    d += le16(3) + le16(1) + le32(sampleRate) + le32(sampleRate * 4) + le16(4) + le16(32)   // IEEE float
+    d += Array("data".utf8) + le32(dataBytes)
+    for s in samples { d += le32(Int(s.bitPattern)) }
+    return Data(d)
 }
