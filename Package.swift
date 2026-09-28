@@ -5,7 +5,7 @@ let package = Package(
     name: "StuntCopter",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "StuntCopter", targets: ["StuntCopter"]),
+        .executable(name: "StuntCopter", targets: ["StuntCopterMac"]),
         .executable(name: "rsrc-tool", targets: ["rsrc-tool"]),
     ],
     targets: [
@@ -15,7 +15,7 @@ let package = Package(
         // Line-by-line port of StuntCopter.pas on top of ClassicToolbox. No AppKit.
         .target(name: "StuntCopterCore", dependencies: ["ClassicToolbox"]),
         // AppKit shell: window, menus, input capture, audio output.
-        .executableTarget(name: "StuntCopter", dependencies: ["StuntCopterCore"]),
+        .executableTarget(name: "StuntCopterMac", dependencies: ["StuntCopterCore"]),
         // Developer tool: extract/dump resources, generate embedded data and icons.
         .executableTarget(name: "rsrc-tool", dependencies: ["ClassicToolbox", "StuntCopterCore"]),
         .testTarget(name: "ClassicToolboxTests", dependencies: ["ClassicToolbox", "StuntCopterCore"]),

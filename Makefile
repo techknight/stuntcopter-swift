@@ -21,7 +21,7 @@
 #   (the last two need: python3 -m venv .venv && .venv/bin/pip install machfs)
 
 APP      := build/StuntCopter.app
-VERSION  := $(shell /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Support/Info.plist)
+VERSION  := $(shell /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Support/macOS/Info.plist)
 ZIP      := build/StuntCopter-$(VERSION).zip
 SIGN_IDENTITY  ?= Developer ID Application
 NOTARY_PROFILE ?= stuntcopter-notary
@@ -55,7 +55,7 @@ app: $(ICNS)
 	@rm -rf $(APP)
 	@mkdir -p $(APP)/Contents/MacOS $(APP)/Contents/Resources
 	cp "$$(swift build -c release $(ARCHFLAGS) --show-bin-path)/StuntCopter" $(APP)/Contents/MacOS/StuntCopter
-	cp Support/Info.plist $(APP)/Contents/Info.plist
+	cp Support/macOS/Info.plist $(APP)/Contents/Info.plist
 	cp $(ICNS) $(APP)/Contents/Resources/AppIcon.icns
 	codesign --force --sign - $(APP)
 	@echo "Built $(APP)"

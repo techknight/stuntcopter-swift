@@ -84,7 +84,7 @@ swift run StuntCopter   # run straight from SwiftPM
 | `Resources/StuntCopter.textsheet` | all of the game's text, pre-rendered in Chicago 12 (`make text`) |
 | `Sources/ClassicToolbox` | resource manager, 1-bit QuickDraw, regions, fonts, controls, dialogs, Sound Driver |
 | `Sources/StuntCopterCore` | the game: `StuntCopterGame.swift` is the port of `StuntCopter.pas` |
-| `Sources/StuntCopter` | the AppKit shell: window, menus, frame pacing, mouse capture, audio |
+| `Sources/StuntCopterMac` | the macOS app (AppKit): window, menus, frame pacing, mouse capture, audio |
 | `Sources/rsrc-tool` | extracts, lists and dumps resources, embeds data, builds the icon |
 | `Tools/` | Python helpers that need a System 6 disk image: the reference boot disk and font extraction |
 | `Tests/` | Swift Testing suites; `Golden/*.pbm` are 1-bit reference frames |
