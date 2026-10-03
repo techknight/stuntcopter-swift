@@ -138,7 +138,7 @@ final class Win32Window {
         return bitmapPoint(clientX: Int(p.x), clientY: Int(p.y))
     }
 
-    var isVisible: Bool { IsWindowVisible(hwnd).boolValue }
+    var isVisible: Bool { IsWindowVisible(hwnd) }
 
     // MARK: Painting
 

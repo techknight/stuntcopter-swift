@@ -80,7 +80,7 @@ final class DialogWindow {
         var x = topLeft.x, y = topLeft.y
         var mi = MONITORINFO()
         mi.cbSize = DWORD(MemoryLayout<MONITORINFO>.size)
-        if let monitor = MonitorFromWindow(owner.hwnd, DWORD(MONITOR_DEFAULTTONEAREST)), GetMonitorInfoW(monitor, &mi).boolValue {
+        if let monitor = MonitorFromWindow(owner.hwnd, DWORD(MONITOR_DEFAULTTONEAREST)), GetMonitorInfoW(monitor, &mi) {
             let work = mi.rcWork
             x = min(max(x, work.left), work.right - w)
             y = min(max(y, work.top), work.bottom - h)
@@ -104,7 +104,7 @@ final class DialogWindow {
         _ = EnableWindow(owner.hwnd, false)
         var msg = MSG()
         while result == nil {
-            guard GetMessageW(&msg, nil, 0, 0).boolValue else {   // WM_QUIT
+            guard GetMessageW(&msg, nil, 0, 0) else {   // WM_QUIT
                 PostQuitMessage(0)
                 result = 1
                 break

@@ -73,13 +73,13 @@ final class App: GameHost {
     func run() {
         var msg = MSG()
         loop: while true {
-            while PeekMessageW(&msg, nil, 0, 0, UINT(PM_REMOVE)).boolValue {
+            while PeekMessageW(&msg, nil, 0, 0, UINT(PM_REMOVE)) {
                 if msg.message == UINT(WM_QUIT) { break loop }
                 _ = TranslateMessage(&msg)
                 _ = DispatchMessageW(&msg)
             }
             frame()
-            if !sc_wait_for_vblank().boolValue { Sleep(16) }
+            if !sc_wait_for_vblank() { Sleep(16) }
         }
         releasePointerLock()
         audio?.stop()
@@ -127,7 +127,7 @@ final class App: GameHost {
         let saved = prefs.integer(forKey: PreferenceKey.scale)
         if WindowScale.range.contains(saved) { return saved }
         var work = RECT()
-        guard SystemParametersInfoW(UINT(SPI_GETWORKAREA), 0, &work, 0).boolValue else {
+        guard SystemParametersInfoW(UINT(SPI_GETWORKAREA), 0, &work, 0) else {
             return WindowScale.initial(game.windowRect, screenWidth: nil, screenHeight: nil)
         }
         let chrome = window.chromeSize
@@ -165,7 +165,7 @@ final class App: GameHost {
 
     private func center() {
         var work = RECT(), r = RECT()
-        guard SystemParametersInfoW(UINT(SPI_GETWORKAREA), 0, &work, 0).boolValue, GetWindowRect(window.hwnd, &r).boolValue else {
+        guard SystemParametersInfoW(UINT(SPI_GETWORKAREA), 0, &work, 0), GetWindowRect(window.hwnd, &r) else {
             return
         }
         let w = r.right - r.left, h = r.bottom - r.top
