@@ -17,10 +17,17 @@ struct RGBAImage {
     /// Luminance (Rec. 601) composited over black, the way drawing into a zeroed
     /// DeviceGray CGContext produced it.
     var gray: [UInt8] {
-        (0..<width * height).map { i in
-            let r = Int(rgba[4 * i]), g = Int(rgba[4 * i + 1]), b = Int(rgba[4 * i + 2]), a = Int(rgba[4 * i + 3])
-            return UInt8((299 * r + 587 * g + 114 * b) * a / (1000 * 255))
+        // Typed steps: Swift 6.1 (CI) times out type-checking the one-expression form.
+        var out = [UInt8](repeating: 0, count: width * height)
+        for i in 0..<out.count {
+            let r: Int = Int(rgba[4 * i])
+            let g: Int = Int(rgba[4 * i + 1])
+            let b: Int = Int(rgba[4 * i + 2])
+            let a: Int = Int(rgba[4 * i + 3])
+            let luma: Int = 299 * r + 587 * g + 114 * b
+            out[i] = UInt8(luma * a / (1000 * 255))
         }
+        return out
     }
 }
 

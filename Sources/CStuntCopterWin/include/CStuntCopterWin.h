@@ -19,8 +19,7 @@ static inline int sc_y_lparam(intptr_t l) { return (int)(short)((l >> 16) & 0xFF
 static inline int sc_cw_usedefault(void) { return CW_USEDEFAULT; }
 static inline DWORD sc_srccopy(void) { return SRCCOPY; }
 static inline DWORD sc_blackness(void) { return BLACKNESS; }
-static inline UINT sc_wave_mapper(void) { return WAVE_MAPPER; }
-static inline HCURSOR sc_arrow_cursor(void) { return LoadCursorW(NULL, IDC_ARROW); }
+static inline HCURSOR sc_arrow_cursor(void) { return LoadCursorW(NULL, MAKEINTRESOURCEW(32512) /* IDC_ARROW */); }
 static inline HBRUSH sc_black_brush(void) { return (HBRUSH)GetStockObject(BLACK_BRUSH); }
 static inline UINT_PTR sc_menu_as_id(HMENU m) { return (UINT_PTR)m; }
 static inline LPARAM sc_icon_as_lparam(HICON i) { return (LPARAM)i; }
