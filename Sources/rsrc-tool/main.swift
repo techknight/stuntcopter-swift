@@ -5,6 +5,7 @@
 //   rsrc-tool embed   <file> <out.swift> <EnumName>   generate a Swift source embedding a file
 //   rsrc-tool dump    <file.rsrc> <outdir>            PICT/RGN/ICON/ICN# as PNGs
 //   rsrc-tool iconset <file.rsrc> <out.iconset>       AppIcon.iconset from ICN# 129
+//   rsrc-tool ico     <file.rsrc> <out.ico>           Windows icon (all sizes) from ICN# 129
 //   rsrc-tool text-sheet <font.FONT> <file.rsrc> <out.textsheet>
 //                     pre-render all of StuntCopter's text with a bitmap font
 
@@ -65,6 +66,40 @@ func writeRGBAPNG(_ rgba: [UInt8], size: Int, to path: String) {
     CGImageDestinationFinalize(dest)
 }
 
+/// PNG bytes for premultiplied RGBA pixels (ImageIO un-premultiplies for PNG).
+func rgbaPNGData(_ rgba: [UInt8], size: Int) -> Data {
+    let provider = CGDataProvider(data: Data(rgba) as CFData)!
+    let image = CGImage(width: size, height: size, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: size * 4,
+                        space: CGColorSpaceCreateDeviceRGB(),
+                        bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                        provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)!
+    let data = NSMutableData()
+    let dest = CGImageDestinationCreateWithData(data as CFMutableData, UTType.png.identifier as CFString, 1, nil)!
+    CGImageDestinationAddImage(dest, image, nil)
+    CGImageDestinationFinalize(dest)
+    return data as Data
+}
+
+/// A Windows .ico holding one PNG-compressed image per size (Windows Vista and later
+/// read PNG entries at every size). Layout: ICONDIR, one ICONDIRENTRY per image, data.
+func icoData(_ images: [(size: Int, png: Data)]) -> Data {
+    var out = Data()
+    func u16(_ v: Int) { out.append(contentsOf: [UInt8(v & 0xFF), UInt8(v >> 8 & 0xFF)]) }
+    func u32(_ v: Int) { u16(v & 0xFFFF); u16(v >> 16 & 0xFFFF) }
+    u16(0); u16(1); u16(images.count)   // reserved, type 1 = icon, count
+    var offset = 6 + 16 * images.count
+    for (size, png) in images {
+        out.append(UInt8(size >= 256 ? 0 : size))   // width; 0 means 256
+        out.append(UInt8(size >= 256 ? 0 : size))   // height
+        out.append(0); out.append(0)                  // palette colours, reserved
+        u16(1); u16(32)                               // planes, bits per pixel
+        u32(png.count); u32(offset)
+        offset += png.count
+    }
+    for (_, png) in images { out.append(png) }
+    return out
+}
+
 @MainActor func render(_ pic: Picture) -> BitMap {
     let frame = pic.picFrame.offsetBy(-pic.picFrame.left, -pic.picFrame.top)
     let qd = QuickDraw(port: GrafPort(size: frame))
@@ -84,7 +119,7 @@ func writeRGBAPNG(_ rgba: [UInt8], size: Int, to path: String) {
 
 let args = CommandLine.arguments
 guard args.count >= 3 else {
-    fail("usage: rsrc-tool extract|list|embed|dump|iconset <input> [output]")
+    fail("usage: rsrc-tool extract|list|embed|dump|iconset|ico <input> [output]")
 }
 
 switch args[1] {
@@ -152,6 +187,16 @@ case "iconset":
         }
     }
     print("wrote \(out)")
+
+case "ico":
+    guard args.count == 4 else { fail("usage: rsrc-tool ico <file.rsrc> <out.ico>") }
+    let fork = try ResourceFork(forkData: readBytes(args[2]))
+    let (icon, _) = try fork.iconList(129)
+    // The sizes Windows asks for at 100–250% scaling: small icons, Explorer views, Alt-Tab.
+    let sizes = [16, 20, 24, 32, 40, 48, 64, 256]
+    let ico = icoData(sizes.map { ($0, rgbaPNGData(appIconPixels(icon: icon, size: $0), size: $0)) })
+    try ico.write(to: URL(fileURLWithPath: args[3]))
+    print("wrote \(args[3]): \(sizes.map(String.init).joined(separator: ", ")) px, \(ico.count) bytes")
 
 case "text-sheet":
     guard args.count == 5 else { fail("usage: rsrc-tool text-sheet <font.FONT> <file.rsrc> <out.textsheet>") }

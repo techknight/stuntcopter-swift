@@ -1,0 +1,4 @@
+// Win32 resources linked into StuntCopter.exe (see Support/Windows/build.ps1).
+// Icon 1 is the one Explorer, the taskbar and Alt-Tab show; the app's windows load
+// it too. StuntCopter.ico is generated from the original ICN# by `make ico`.
+1 ICON "StuntCopter.ico"

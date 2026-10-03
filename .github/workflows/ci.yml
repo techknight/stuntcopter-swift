@@ -32,4 +32,5 @@ jobs:
       - name: Test
         run: swift test
       - name: Build the app
-        run: swift build -c release
+        shell: pwsh
+        run: Support/Windows/build.ps1

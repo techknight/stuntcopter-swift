@@ -107,10 +107,7 @@ jobs:
       - name: Build
         id: build
         shell: pwsh
-        run: |
-          swift build -c release
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          "bin=$((swift build -c release --show-bin-path).Trim())" >> $env:GITHUB_OUTPUT
+        run: Support/Windows/build.ps1
 
       - name: Azure login
         if: env.SIGNING == 'true'

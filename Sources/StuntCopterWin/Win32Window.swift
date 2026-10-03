@@ -26,7 +26,7 @@ func windowProc(_ hwnd: HWND?, _ msg: UINT, _ wParam: WPARAM, _ lParam: LPARAM) 
 
 /// Registers a window class that paints through Win32Window.
 @MainActor
-func registerWindowClass(_ name: String, icon: HICON?, dropShadow: Bool) {
+func registerWindowClass(_ name: String, icon: HICON?, smallIcon: HICON?, dropShadow: Bool) {
     var wc = WNDCLASSEXW()
     wc.cbSize = UINT(MemoryLayout<WNDCLASSEXW>.size)
     wc.style = UINT(CS_HREDRAW | CS_VREDRAW) | (dropShadow ? UINT(CS_DROPSHADOW) : 0)
@@ -35,7 +35,7 @@ func registerWindowClass(_ name: String, icon: HICON?, dropShadow: Bool) {
     wc.hCursor = sc_arrow_cursor()
     wc.hbrBackground = sc_black_brush()
     wc.hIcon = icon
-    wc.hIconSm = icon
+    wc.hIconSm = smallIcon
     name.withCString(encodedAs: UTF16.self) { cls in
         wc.lpszClassName = cls
         _ = RegisterClassExW(&wc)

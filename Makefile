@@ -11,6 +11,7 @@
 #                       --key AuthKey_XXXX.p8 --key-id XXXX --issuer <issuer UUID>
 #                   CI passes NOTARY_ARGS="--key … --key-id … --issuer …" instead.
 #   make dump       write every PICT/RGN/icon resource as PNG into build/dump
+#   make ico        regenerate Support/Windows/StuntCopter.ico (the Windows app icon)
 #   make resources  re-extract Resources/StuntCopter.rsrc from the original AppleDouble
 #                   and regenerate Sources/StuntCopterCore/EmbeddedResources.swift
 #   make golden     re-record the golden snapshot images used by the tests
@@ -31,7 +32,7 @@ ICNS     := build/AppIcon.icns
 TOOL     := .build/debug/rsrc-tool
 ARCHFLAGS ?=
 
-.PHONY: all build test app run release universal dump resources golden reference text clean
+.PHONY: all build test app run release universal dump ico resources golden reference text clean
 
 all: build
 
@@ -81,6 +82,9 @@ release:
 
 dump: $(TOOL)
 	$(TOOL) dump $(RSRC) build/dump
+
+ico: $(TOOL)
+	$(TOOL) ico $(RSRC) Support/Windows/StuntCopter.ico
 
 resources: $(TOOL)
 	$(TOOL) extract original/StuntCopter1.5.AppleDouble $(RSRC)

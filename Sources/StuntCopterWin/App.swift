@@ -49,9 +49,12 @@ final class App: GameHost {
         _ = QueryPerformanceFrequency(&freq)
         performanceFrequency = Double(freq.QuadPart)
 
-        let icon = makeIcon()
-        registerWindowClass(App.className, icon: icon, dropShadow: false)
-        registerWindowClass(DialogWindow.className, icon: nil, dropShadow: true)
+        // The exe's icon resource, drawn for each size; a plain `swift build` has none,
+        // so fall back to rendering the ICN# here.
+        let large = sc_resource_icon(false), small = sc_resource_icon(true)
+        let fallback = large == nil ? makeIcon() : nil
+        registerWindowClass(App.className, icon: large ?? fallback, smallIcon: small ?? fallback, dropShadow: false)
+        registerWindowClass(DialogWindow.className, icon: nil, smallIcon: nil, dropShadow: true)
         buildWindow()
         buildMenus()
 

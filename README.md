@@ -83,8 +83,9 @@ Visual Studio prerequisites, then from a developer command prompt:
 
 ```sh
 swift test
-swift build -c release    # .build\release\StuntCopter.exe; needs the Swift runtime DLLs
-                          # on the PATH (or next to it, as the release zip packs them)
+pwsh Support/Windows/build.ps1   # release build with the icon → .build\release\StuntCopter.exe;
+                                 # it needs the Swift runtime DLLs on the PATH (or next
+                                 # to it, as the release zip packs them)
 ```
 
 The same game and Toolbox code runs on both: only the shell (window, menus, mouse
@@ -103,6 +104,7 @@ against Win32.
 | `Sources/StuntCopterCore/Shell` | what both shells share: frame pacing, the virtual pointer, key mapping, dialog frames, preference keys |
 | `Sources/StuntCopterMac` | the macOS app (AppKit): window, menus, mouse capture, audio, dialogs |
 | `Sources/StuntCopterWin` | the Windows app (Win32): the same, plus `CStuntCopterWin`, a small C shim for waveOut audio and the icon |
+| `Support/Windows` | the exe's icon (`make ico`), its resource script, and `build.ps1`, the release build that links them |
 | `Sources/rsrc-tool` | extracts, lists and dumps resources, embeds data, builds the icon |
 | `Tools/` | Python helpers that need a System 6 disk image: the reference boot disk and font extraction |
 | `Tests/` | Swift Testing suites; `Golden/*.pbm` are 1-bit reference frames |

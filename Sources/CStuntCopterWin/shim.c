@@ -33,11 +33,13 @@ HICON sc_icon_from_rgba(const uint8_t *rgba, int size) {
     ReleaseDC(NULL, dc);
     if (!color || !bits) return NULL;
     uint8_t *dst = bits;
-    for (int i = 0; i < size * size; i++) {   // RGBA → BGRA
-        dst[i * 4 + 0] = rgba[i * 4 + 2];
-        dst[i * 4 + 1] = rgba[i * 4 + 1];
-        dst[i * 4 + 2] = rgba[i * 4 + 0];
-        dst[i * 4 + 3] = rgba[i * 4 + 3];
+    for (int i = 0; i < size * size; i++) {   // premultiplied RGBA → straight BGRA, as icons want
+        int a = rgba[i * 4 + 3];
+        for (int c = 0; c < 3; c++) {
+            int v = rgba[i * 4 + 2 - c];
+            dst[i * 4 + c] = (uint8_t)(a ? (v * 255 + a / 2) / a : 0);
+        }
+        dst[i * 4 + 3] = (uint8_t)a;
     }
     HBITMAP mask = CreateBitmap(size, size, 1, 1, NULL);
     ICONINFO ii;
@@ -49,6 +51,11 @@ HICON sc_icon_from_rgba(const uint8_t *rgba, int size) {
     DeleteObject(color);
     DeleteObject(mask);
     return icon;
+}
+
+HICON sc_resource_icon(BOOL small) {
+    int size = GetSystemMetrics(small ? SM_CXSMICON : SM_CXICON);
+    return (HICON)LoadImageW(GetModuleHandleW(NULL), MAKEINTRESOURCEW(1), IMAGE_ICON, size, size, LR_DEFAULTCOLOR);
 }
 
 // MARK: Audio (waveOut, fed from a thread)
