@@ -6,33 +6,24 @@ import StuntCopterCore
 /// runs ModalDialog's event handling.
 @MainActor
 final class DialogPanel: NSPanel {
-    /// dBoxProc frame drawn outside the content, measured from the original on an
-    /// emulated Mac Plus: from the outside in, 1 black, 2 white, 2 black, 3 white.
-    static let frame: [UInt8] = [1, 0, 0, 1, 1, 0, 0, 0]
-    static let frameWidth = frame.count
-
-    let dialog: ClassicDialog
+    let framed: DialogFrame
     let game: StuntCopterGame
     let pixelView: PixelView
-    private let composite: BitMap
+    var dialog: ClassicDialog { framed.dialog }
 
     init(dialog: ClassicDialog, game: StuntCopterGame) {
-        self.dialog = dialog
+        framed = DialogFrame(dialog: dialog)
         self.game = game
-        let f = DialogPanel.frameWidth
-        let c = dialog.size
-        composite = BitMap(bounds: Rect(top: 0, left: 0, bottom: c.height + 2 * f, right: c.width + 2 * f))
-        pixelView = PixelView(bitmap: composite)
+        pixelView = PixelView(bitmap: framed.composite)
         super.init(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
         contentView = pixelView
         isOpaque = true
         hasShadow = true
         level = .modalPanel
-        drawFrame()
 
         pixelView.onMouseDown = { [weak self] p, _ in
             guard let self else { return }
-            if let item = game.dialogMouseDown(dialog, self.contentPoint(p)) {
+            if let item = game.dialogMouseDown(dialog, self.framed.contentPoint(p)) {
                 self.refresh()
                 NSApp.stopModal(withCode: NSApplication.ModalResponse(rawValue: item))
             }
@@ -40,24 +31,19 @@ final class DialogPanel: NSPanel {
         }
         pixelView.onMouseDragged = { [weak self] p, _ in
             guard let self else { return }
-            game.dialogMouseDragged(dialog, self.contentPoint(p))
+            game.dialogMouseDragged(dialog, self.framed.contentPoint(p))
             self.refresh()
         }
         pixelView.onMouseUp = { [weak self] p, _ in
             guard let self else { return }
-            let item = game.dialogMouseUp(dialog, self.contentPoint(p))
+            let item = game.dialogMouseUp(dialog, self.framed.contentPoint(p))
             self.refresh()
             if let item { NSApp.stopModal(withCode: NSApplication.ModalResponse(rawValue: item)) }
         }
         pixelView.onKeyDown = { [weak self] event in
             guard let self else { return false }
-            if event.modifierFlags.contains(.command) { return false }
-            let ch: Character = switch event.keyCode {
-            case 76: "\u{3}"    // keypad Enter
-            case 53: "\u{1B}"   // Esc
-            default: event.characters?.first ?? " "
-            }
-            if let item = game.dialogKey(dialog, ch) {
+            guard let key = event.hostKey else { return false }
+            if let item = game.dialogKey(dialog, key.character) {
                 // ModalDialog flashes the button it's returning.
                 if let c = game.GetDItemControl(dialog, item) {
                     game.HiliteControl(c, 1); self.refresh(); CATransaction.flush()
@@ -74,29 +60,9 @@ final class DialogPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
-    private func contentPoint(_ p: Point) -> Point {
-        Point(h: p.h - DialogPanel.frameWidth, v: p.v - DialogPanel.frameWidth)
-    }
-
-    private func drawFrame() {
-        let w = composite.width, h = composite.height
-        for y in 0..<h {
-            for x in 0..<w {
-                let d = min(x, y, w - 1 - x, h - 1 - y)   // distance from the outer edge
-                if d < DialogPanel.frameWidth { composite.pixels[y * w + x] = DialogPanel.frame[d] }
-            }
-        }
-    }
-
     /// Copies the dialog's port into the framed composite and redisplays it.
     func refresh() {
-        let src = dialog.port.portBits
-        let f = DialogPanel.frameWidth
-        for y in 0..<src.height {
-            let s = y * src.width, d = (y + f) * composite.width + f
-            composite.pixels.replaceSubrange(d..<(d + src.width), with: src.pixels[s..<(s + src.width)])
-        }
-        composite.markChanged()
+        framed.refresh()
         pixelView.refresh()
     }
 
@@ -104,10 +70,8 @@ final class DialogPanel: NSPanel {
     /// at the game window's current magnification.
     func position(over gameView: PixelView, windowOrigin: Point) {
         let s = CGFloat(gameView.scale)
-        let f = CGFloat(DialogPanel.frameWidth)
-        let b = dialog.template.boundsRect
-        let local = Point(h: b.left - windowOrigin.h - DialogPanel.frameWidth, v: b.top - windowOrigin.v - DialogPanel.frameWidth)
-        let size = NSSize(width: (CGFloat(dialog.size.width) + 2 * f) * s, height: (CGFloat(dialog.size.height) + 2 * f) * s)
+        let local = framed.origin(relativeToWindowAt: windowOrigin)
+        let size = NSSize(width: CGFloat(framed.composite.width) * s, height: CGFloat(framed.composite.height) * s)
         guard let window = gameView.window else { return }
         let r = gameView.imageRect
         let topLeftInView = NSPoint(x: r.minX + CGFloat(local.h) * s, y: r.minY + CGFloat(local.v) * s)

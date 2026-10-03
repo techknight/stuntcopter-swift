@@ -12,8 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private var view: PixelView!
     private var audio: AudioOutput?
     private var displayLink: CADisplayLink?
-    private var lastTime: CFTimeInterval = 0
-    private var accumulator = 0.0
+    private var pacer = FramePacer()
     private var dialogPanels: [Int: DialogPanel] = [:]
     private var modalDepth = 0
 
@@ -22,19 +21,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private var menusEnabled = true
     private var soundItem: NSMenuItem?
 
-    // Virtual pointer while the cursor is hidden for play.
-    private var captured = false
-    private var virtualX = 256.0, virtualY = 170.0
+    /// Set while the cursor is hidden for play.
+    private var pointer: VirtualPointer?
+    private var captured: Bool { pointer != nil }
 
     private let defaults = UserDefaults.standard
-
-    /// In-game loops per second at NORMAL speed: the original on a Mac Plus, measured in
-    /// an emulator (StuntCopterGame.loopRateFactor scales it for attract mode etc.).
-    /// Override with `defaults write com.techknight.StuntCopter LoopsPerSecond -float N`.
-    private var loopsPerSecond: Double {
-        let v = defaults.double(forKey: "LoopsPerSecond")
-        return v > 0 ? v : 30
-    }
 
     // MARK: Launch
 
@@ -46,6 +37,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             NSApp.terminate(nil)
             return
         }
+        // Override with `defaults write com.techknight.StuntCopter LoopsPerSecond -float N`.
+        pacer = FramePacer(loopsPerSecond: defaults.double(forKey: PreferenceKey.loopsPerSecond))
         if Bundle.main.bundleIdentifier == nil, let icn = try? game.resources.iconList(129) {
             NSApp.applicationIconImage = makeIconImage(icon: icn.icon)
         }
@@ -88,9 +81,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     // MARK: Window
 
     private func defaultScale() -> Int {
-        guard let screen = NSScreen.main?.visibleFrame else { return 2 }
-        let s = min(Int(screen.width) / game.windowRect.width, Int(screen.height - 40) / game.windowRect.height)
-        return max(1, min(4, s))
+        let screen = NSScreen.main?.visibleFrame
+        return WindowScale.initial(game.windowRect, screenWidth: screen.map { Int($0.width) },
+                                   screenHeight: screen.map { Int($0.height - 40) })   // title bar
     }
 
     private func contentSize(scale: Int) -> NSSize {
@@ -98,8 +91,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     }
 
     private func buildWindow() {
-        let saved = defaults.integer(forKey: "Scale")
-        let scale = (1...4).contains(saved) ? saved : defaultScale()
+        let saved = defaults.integer(forKey: PreferenceKey.scale)
+        let scale = WindowScale.range.contains(saved) ? saved : defaultScale()
         window = NSWindow(contentRect: NSRect(origin: .zero, size: contentSize(scale: scale)),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable],
                           backing: .buffered, defer: false)
@@ -139,8 +132,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
         guard !sender.styleMask.contains(.fullScreen) else { return frameSize }
         let chrome = chromeSize
-        let s = max(1, min(Int(frameSize.width - chrome.width) / game.windowRect.width,
-                           Int(frameSize.height - chrome.height) / game.windowRect.height))
+        let s = WindowScale.fitting(game.windowRect, width: Int(frameSize.width - chrome.width),
+                                    height: Int(frameSize.height - chrome.height), limit: nil)
         let content = contentSize(scale: s)
         return NSSize(width: content.width + chrome.width, height: content.height + chrome.height)
     }
@@ -164,7 +157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         if view.bounds.size != contentSize(scale: s) {
             setGameScale(s)
         } else {
-            defaults.set(s, forKey: "Scale")
+            defaults.set(s, forKey: PreferenceKey.scale)
         }
     }
 
@@ -174,7 +167,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         let top = window.frame.maxY
         window.setContentSize(contentSize(scale: s))
         window.setFrameTopLeftPoint(NSPoint(x: window.frame.minX, y: top))
-        defaults.set(s, forKey: "Scale")
+        defaults.set(s, forKey: PreferenceKey.scale)
     }
 
     @objc private func setScale(_ sender: NSMenuItem) {
@@ -185,48 +178,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     // MARK: Frame pacing
 
     @objc private func frame(_ link: CADisplayLink) {
-        let now = link.timestamp
-        defer { lastTime = now }
-        guard lastTime > 0, modalDepth == 0 else { return }
-        accumulator += min(now - lastTime, 0.25) * loopsPerSecond * game.loopRateFactor
-        var steps = 0
-        while accumulator >= 1 && steps < 8 {
-            game.tick()
-            accumulator -= 1
-            steps += 1
-        }
-        if steps == 8 { accumulator = 0 }
+        guard modalDepth == 0 else { return }   // hideDialogWindow resets the pacer
+        for _ in 0..<pacer.steps(at: link.timestamp, rateFactor: game.loopRateFactor) { game.tick() }
         view.refresh()
     }
 
     // MARK: Input
 
     private func mouseMoved(_ event: NSEvent) {
-        guard captured else { return }
-        let s = Double(view.scale)
-        let origin = game.windowGlobalOrigin
-        // Clamp to the 512×342 Mac Plus screen, expressed in window coordinates.
-        virtualX = min(max(virtualX + event.deltaX / s, Double(-origin.h)), Double(512 - origin.h))
-        virtualY = min(max(virtualY + event.deltaY / s, Double(-origin.v)), Double(342 - origin.v))
+        pointer?.move(dx: event.deltaX, dy: event.deltaY, scale: view.scale, windowOrigin: game.windowGlobalOrigin)
     }
 
     private func keyDown(_ event: NSEvent) -> Bool {
-        if event.modifierFlags.contains(.command) { return false }
-        switch event.keyCode {
-        case 51: game.post(.keyDown("\u{8}"))    // delete = backspace
-        case 53: game.post(.keyDown("\u{1B}"))   // esc
-        default:
-            guard let ch = event.characters?.first else { return false }
-            game.post(.keyDown(ch))
-        }
+        guard let key = event.hostKey else { return false }
+        game.post(.keyDown(key.character))
         return true
     }
 
     private func releaseCapture() {
-        guard captured else { return }
-        captured = false
+        guard let pointer else { return }
+        self.pointer = nil
         CGAssociateMouseAndMouseCursorPosition(1)
-        if let p = view.screenPoint(Point(h: Int(virtualX), v: Int(virtualY))),
+        if let p = view.screenPoint(pointer.point),
            let screenHeight = NSScreen.screens.first?.frame.height {
             CGWarpMouseCursorPosition(CGPoint(x: p.x, y: screenHeight - p.y))
         }
@@ -236,17 +209,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     // MARK: GameHost
 
     func getMouse() -> Point {
-        if captured { return Point(h: Int(virtualX.rounded(.down)), v: Int(virtualY.rounded(.down))) }
+        if let pointer { return pointer.point }
         let p = view.convert(window.mouseLocationOutsideOfEventStream, from: nil)
         return view.bitmapPoint(p)
     }
 
     func hideCursor() {
         guard !captured else { return }
-        let p = getMouse()
-        virtualX = Double(p.h)
-        virtualY = Double(p.v)
-        captured = true
+        pointer = VirtualPointer(at: getMouse())
         NSCursor.hide()
         CGAssociateMouseAndMouseCursorPosition(0)
     }
@@ -282,7 +252,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     func hideDialogWindow(_ d: ClassicDialog) {
         panel(for: d).orderOut(nil)
         modalDepth = max(0, modalDepth - 1)
-        lastTime = 0
+        pacer.reset()
         window.makeKeyAndOrderFront(nil)
     }
 
@@ -302,9 +272,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         if remaining > 0 { Thread.sleep(forTimeInterval: remaining) }
     }
 
-    func savedHiScore() -> Int { defaults.integer(forKey: "HiScore") }
+    func savedHiScore() -> Int { defaults.integer(forKey: PreferenceKey.hiScore) }
 
-    func hiScoreChanged(_ hiScore: Int) { defaults.set(hiScore, forKey: "HiScore") }
+    func hiScoreChanged(_ hiScore: Int) { defaults.set(hiScore, forKey: PreferenceKey.hiScore) }
 
     func quit() { NSApp.terminate(nil) }
 
@@ -349,7 +319,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         // View (new): magnification and full screen.
         let viewItem = NSMenuItem()
         let viewMenu = NSMenu(title: "View")
-        for s in 1...4 {
+        for s in WindowScale.range {
             let mi = viewMenu.addItem(withTitle: "\(s)× Size", action: #selector(setScale(_:)), keyEquivalent: "\(s)")
             mi.tag = s
         }

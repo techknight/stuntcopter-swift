@@ -46,6 +46,16 @@ public final class BitMap {
 
     public func markChanged() { generation &+= 1 }
 
+    /// Pixels as 8-bit grayscale, one byte each, row-major: black on white, the
+    /// form every platform's image API takes directly.
+    public func grayscaleBytes() -> [UInt8] {
+        var gray = [UInt8](repeating: 255, count: width * height)
+        pixels.withUnsafeBufferPointer { src in
+            for i in 0..<gray.count where src[i] != 0 { gray[i] = 0 }
+        }
+        return gray
+    }
+
     /// Pixels as packed rows of `rowBytes` bytes (MSB first), the classic memory layout.
     public func packedRows() -> [UInt8] {
         var out = [UInt8](repeating: 0, count: rowBytes * height)
