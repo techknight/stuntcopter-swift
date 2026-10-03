@@ -18,6 +18,9 @@ final class App: GameHost {
     private var modalDepth = 0
     private var inSizeMove = false
     private var settingScale = false
+    /// Set once the window is sized and shown; before that, WM_SIZE from building it
+    /// (SetMenu shrinks the client area) must not snap and overwrite the saved scale.
+    private var ready = false
     private let prefs = Preferences()
 
     // Menus. Command ids: menu index × 100 + item (Win32 ids are 16-bit).
@@ -54,10 +57,10 @@ final class App: GameHost {
 
         try game.start()
         game.tick()   // the first update event draws the window
-        let scale = initialScale()
-        setScale(scale)
+        setScale(initialScale())
         center()
         _ = ShowWindow(window.hwnd, SW_SHOW)
+        ready = true
         window.refresh()
 
         audio = AudioOutput(driver: game.soundDriver)
@@ -193,10 +196,10 @@ final class App: GameHost {
             return nil
         case WM_EXITSIZEMOVE:
             inSizeMove = false
-            snapToIntegerScale()
+            if ready { snapToIntegerScale() }
             return nil
         case WM_SIZE:
-            if !inSizeMove, !settingScale, Int32(truncatingIfNeeded: wParam) != SIZE_MINIMIZED { snapToIntegerScale() }
+            if ready, !inSizeMove, !settingScale, Int32(truncatingIfNeeded: wParam) != SIZE_MINIMIZED { snapToIntegerScale() }
             return nil
         case WM_GETMINMAXINFO:
             guard window != nil, let info = UnsafeMutablePointer<MINMAXINFO>(bitPattern: Int(lParam)) else { return nil }
