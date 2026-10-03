@@ -53,8 +53,8 @@ HICON sc_icon_from_rgba(const uint8_t *rgba, int size) {
     return icon;
 }
 
-HICON sc_resource_icon(BOOL small) {
-    int size = GetSystemMetrics(small ? SM_CXSMICON : SM_CXICON);
+HICON sc_resource_icon(BOOL small_icon) {
+    int size = GetSystemMetrics(small_icon ? SM_CXSMICON : SM_CXICON);
     return (HICON)LoadImageW(GetModuleHandleW(NULL), MAKEINTRESOURCEW(1), IMAGE_ICON, size, size, LR_DEFAULTCOLOR);
 }
 

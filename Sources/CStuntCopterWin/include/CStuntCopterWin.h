@@ -42,7 +42,7 @@ void sc_end_fine_timer(void);
 HICON sc_icon_from_rgba(const uint8_t *rgba, int size);
 /// Icon resource 1 (Support/Windows/StuntCopter.rc) at the system's large or small
 /// icon size, or NULL if the exe was built without it.
-HICON sc_resource_icon(BOOL small);
+HICON sc_resource_icon(BOOL small_icon);
 
 // MARK: Audio
 
