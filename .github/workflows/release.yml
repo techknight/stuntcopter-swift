@@ -83,6 +83,9 @@ jobs:
 
   windows:
     runs-on: windows-latest
+    # The OIDC token's subject is then repo:<owner>/<repo>:environment:release for
+    # every run (tag or manual), so one federated credential covers all releases.
+    environment: release
     permissions:
       contents: read
       id-token: write   # OIDC login to Azure for signing
