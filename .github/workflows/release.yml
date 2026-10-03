@@ -1,9 +1,9 @@
-# Builds a universal StuntCopter.app, signs it with the Developer ID certificate,
-# notarizes and staples it, and publishes the zip.
-#   - Push a tag like v1.0.0 → a GitHub Release with StuntCopter-<version>.zip.
-#   - Run manually (Actions ▸ Release ▸ Run workflow) → the zip as a build artifact.
+# Builds StuntCopter for macOS (universal, Developer ID–signed, notarized) and
+# Windows (x64), and publishes both zips.
+#   - Push a tag like v1.1.0 → a GitHub Release with both zips.
+#   - Run manually (Actions ▸ Release ▸ Run workflow) → the zips as build artifacts.
 #
-# Repository secrets:
+# Repository secrets (macOS signing):
 #   MACOS_CERTIFICATE_P12       base64 of the Developer ID Application .p12
 #   MACOS_CERTIFICATE_PASSWORD  its password
 #   NOTARY_KEY_P8               base64 of the App Store Connect API key (.p8)
@@ -20,7 +20,7 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  macos:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v5
@@ -61,22 +61,80 @@ jobs:
           make release NOTARY_ARGS="--key $RUNNER_TEMP/AuthKey.p8 --key-id $NOTARY_KEY_ID --issuer $NOTARY_ISSUER_ID"
           rm "$RUNNER_TEMP/AuthKey.p8"
 
-      - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "$GITHUB_REF_NAME" build/StuntCopter-*.zip \
-            --title "StuntCopter 1.5 for macOS, $GITHUB_REF_NAME" \
-            --notes "Duane Blehm's StuntCopter 1.5 (1987), ported to modern macOS. Universal (Apple silicon and Intel) build for macOS 14 or later, signed and notarized: unzip and open StuntCopter.app."
-
       - name: Upload build artifact
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v7
         with:
-          name: StuntCopter
+          name: StuntCopter-macOS
           path: build/StuntCopter-*.zip
 
       - name: Clean up keychain
         if: always()
         run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: compnerd/gha-setup-swift@main
+        with:
+          swift-version: swift-6.1-release
+          swift-build: 6.1-RELEASE
+
+      - name: Toolchain
+        run: swift --version
+
+      - name: Test
+        run: swift test
+
+      - name: Build
+        run: swift build -c release
+
+      # The exe plus the Swift runtime DLLs it loads (Foundation, ICU, concurrency…),
+      # so it runs on a machine without Swift installed. Unsigned: SmartScreen will
+      # warn about an unknown publisher.
+      - name: Package
+        shell: pwsh
+        run: |
+          $version = if ($env:GITHUB_REF_NAME -match '^v(.+)$') { $Matches[1] } else { 'dev' }
+          $bin = (swift build -c release --show-bin-path).Trim()
+          $out = "build\StuntCopter-$version-windows-x64"
+          New-Item -ItemType Directory -Force $out | Out-Null
+          Copy-Item "$bin\StuntCopter.exe" $out
+          $core = Get-ChildItem -Recurse "$env:ProgramFiles\Swift\Runtimes" -Filter swiftCore.dll | Select-Object -First 1
+          if (-not $core) { throw "Swift runtime DLLs not found" }
+          Copy-Item "$($core.DirectoryName)\*.dll" $out
+          $vcr = Get-ChildItem -Recurse "$env:VCToolsRedistDir" -Filter vcruntime140.dll -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match '\\x64\\' } | Select-Object -First 1
+          if ($vcr) { Copy-Item $vcr.FullName $out }
+          Get-ChildItem $out | Format-Table Name, Length
+          Compress-Archive -Path "$out\*" -DestinationPath "$out.zip"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: StuntCopter-Windows
+          path: build/StuntCopter-*-windows-x64.zip
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ls -l dist
+          gh release create "$GITHUB_REF_NAME" dist/StuntCopter-*.zip \
+            --title "StuntCopter 1.5, $GITHUB_REF_NAME" \
+            --notes "Duane Blehm's StuntCopter 1.5 (1987), ported to modern systems.
+
+          - **macOS**: universal (Apple silicon and Intel) build for macOS 14 or later, signed and notarized. Unzip and open StuntCopter.app.
+          - **Windows**: x64 build for Windows 10 or later. Unzip the folder and run StuntCopter.exe (it is not code-signed, so SmartScreen will ask you to confirm)."

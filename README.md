@@ -59,13 +59,17 @@ Don't land on the driver or the horse!
 
 ## Download
 
-Signed and notarized builds for macOS 14 or later (Apple silicon and Intel) are on
-the [Releases](https://github.com/techknight/stuntcopter-swift/releases) page.
-Unzip the download and open StuntCopter.app.
+Builds are on the [Releases](https://github.com/techknight/stuntcopter-swift/releases)
+page:
+
+- **macOS** 14 or later (Apple silicon and Intel), signed and notarized. Unzip the
+  download and open StuntCopter.app.
+- **Windows** 10 or later (x64). Unzip the folder and run StuntCopter.exe. It isn't
+  code-signed, so SmartScreen will ask you to confirm the first time.
 
 ## Build and run
 
-Requirements: macOS 14 or later, and Xcode (or the Command Line Tools) with Swift 6.
+On macOS: macOS 14 or later, and Xcode (or the Command Line Tools) with Swift 6.
 
 ```sh
 make run          # release build → build/StuntCopter.app, then open it
@@ -74,6 +78,19 @@ make universal    # arm64 + x86_64 app
 make release      # universal, Developer ID–signed, notarized zip (see Makefile)
 swift run StuntCopter   # run straight from SwiftPM
 ```
+
+On Windows: [Swift 6.1 for Windows](https://www.swift.org/install/windows/) with its
+Visual Studio prerequisites, then from a developer command prompt:
+
+```sh
+swift test
+swift build -c release    # .build\release\StuntCopter.exe; needs the Swift runtime DLLs
+                          # on the PATH (or next to it, as the release zip packs them)
+```
+
+The same game and Toolbox code runs on both: only the shell (window, menus, mouse
+capture, audio output, dialogs, preferences) is written twice, against AppKit and
+against Win32.
 
 ## Layout
 
@@ -84,7 +101,9 @@ swift run StuntCopter   # run straight from SwiftPM
 | `Resources/StuntCopter.textsheet` | all of the game's text, pre-rendered in Chicago 12 (`make text`) |
 | `Sources/ClassicToolbox` | resource manager, 1-bit QuickDraw, regions, fonts, controls, dialogs, Sound Driver |
 | `Sources/StuntCopterCore` | the game: `StuntCopterGame.swift` is the port of `StuntCopter.pas` |
-| `Sources/StuntCopterMac` | the macOS app (AppKit): window, menus, frame pacing, mouse capture, audio |
+| `Sources/StuntCopterCore/Shell` | what both shells share: frame pacing, the virtual pointer, key mapping, dialog frames, preference keys |
+| `Sources/StuntCopterMac` | the macOS app (AppKit): window, menus, mouse capture, audio, dialogs |
+| `Sources/StuntCopterWin` | the Windows app (Win32): the same, plus `CStuntCopterWin`, a small C shim for waveOut audio and the icon |
 | `Sources/rsrc-tool` | extracts, lists and dumps resources, embeds data, builds the icon |
 | `Tools/` | Python helpers that need a System 6 disk image: the reference boot disk and font extraction |
 | `Tests/` | Swift Testing suites; `Golden/*.pbm` are 1-bit reference frames |
