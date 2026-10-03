@@ -9,6 +9,16 @@
 #   NOTARY_KEY_P8               base64 of the App Store Connect API key (.p8)
 #   NOTARY_KEY_ID               the key's ID
 #   NOTARY_ISSUER_ID            the App Store Connect issuer UUID
+# Repository secrets (Windows signing with Azure Artifact Signing; the signing steps
+# are skipped while AZURE_CLIENT_ID is unset, leaving the exe unsigned):
+#   AZURE_TENANT_ID             Entra tenant of the app registration
+#   AZURE_CLIENT_ID             app registration with a federated credential for this
+#                               repo (OIDC) and the "Artifact Signing Certificate
+#                               Profile Signer" role on the certificate profile
+#   AZURE_SUBSCRIPTION_ID       the Azure subscription
+#   ARTIFACT_SIGNING_ENDPOINT   e.g. https://eus.codesigning.azure.net (the account's region)
+#   ARTIFACT_SIGNING_ACCOUNT    the Artifact Signing account name
+#   ARTIFACT_SIGNING_PROFILE    the Public Trust certificate profile name
 name: Release
 
 on:
@@ -73,6 +83,9 @@ jobs:
 
   windows:
     runs-on: windows-latest
+    permissions:
+      contents: read
+      id-token: write   # OIDC login to Azure for signing
     steps:
       - uses: actions/checkout@v5
 
@@ -88,16 +101,42 @@ jobs:
         run: swift test
 
       - name: Build
-        run: swift build -c release
+        id: build
+        shell: pwsh
+        run: |
+          swift build -c release
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          "bin=$((swift build -c release --show-bin-path).Trim())" >> $env:GITHUB_OUTPUT
+
+      - name: Azure login
+        if: ${{ secrets.AZURE_CLIENT_ID != '' }}
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sign
+        if: ${{ secrets.AZURE_CLIENT_ID != '' }}
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ secrets.ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ secrets.ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.ARTIFACT_SIGNING_PROFILE }}
+          files-folder: ${{ steps.build.outputs.bin }}
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
 
       # The exe plus the Swift runtime DLLs it loads (Foundation, ICU, concurrency…),
-      # so it runs on a machine without Swift installed. Unsigned: SmartScreen will
-      # warn about an unknown publisher.
+      # so it runs on a machine without Swift installed.
       - name: Package
         shell: pwsh
         run: |
           $version = if ($env:GITHUB_REF_NAME -match '^v(.+)$') { $Matches[1] } else { 'dev' }
-          $bin = (swift build -c release --show-bin-path).Trim()
+          $bin = "${{ steps.build.outputs.bin }}"
+          Get-AuthenticodeSignature "$bin\StuntCopter.exe" | Format-List Status, StatusMessage, SignerCertificate
           $out = "build\StuntCopter-$version-windows-x64"
           New-Item -ItemType Directory -Force $out | Out-Null
           Copy-Item "$bin\StuntCopter.exe" $out
@@ -142,4 +181,4 @@ jobs:
             --notes "Duane Blehm's StuntCopter 1.5 (1987), ported to modern systems.
 
           - **macOS**: universal (Apple silicon and Intel) build for macOS 14 or later, signed and notarized. Unzip and open StuntCopter.app.
-          - **Windows**: x64 build for Windows 10 or later. Unzip the folder and run StuntCopter.exe (it is not code-signed, so SmartScreen will ask you to confirm)."
+          - **Windows**: x64 build for Windows 10 or later, code-signed. Unzip the folder and run StuntCopter.exe."

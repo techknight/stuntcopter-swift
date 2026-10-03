@@ -64,8 +64,7 @@ page:
 
 - **macOS** 14 or later (Apple silicon and Intel), signed and notarized. Unzip the
   download and open StuntCopter.app.
-- **Windows** 10 or later (x64). Unzip the folder and run StuntCopter.exe. It isn't
-  code-signed, so SmartScreen will ask you to confirm the first time.
+- **Windows** 10 or later (x64), code-signed. Unzip the folder and run StuntCopter.exe.
 
 ## Build and run
 
