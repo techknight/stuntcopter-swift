@@ -15,7 +15,6 @@
 #   AZURE_CLIENT_ID             app registration with a federated credential for this
 #                               repo (OIDC) and the "Artifact Signing Certificate
 #                               Profile Signer" role on the certificate profile
-#   AZURE_SUBSCRIPTION_ID       the Azure subscription
 #   ARTIFACT_SIGNING_ENDPOINT   e.g. https://eus.codesigning.azure.net (the account's region)
 #   ARTIFACT_SIGNING_ACCOUNT    the Artifact Signing account name
 #   ARTIFACT_SIGNING_PROFILE    the Public Trust certificate profile name
@@ -119,8 +118,9 @@ jobs:
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          allow-no-subscriptions: true   # the app's only role is on the certificate profile
+          # No subscription: the app's only role is on the certificate profile, and
+          # signing needs just the token.
+          allow-no-subscriptions: true
 
       - name: Sign
         if: env.SIGNING == 'true'
