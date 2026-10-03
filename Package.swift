@@ -26,6 +26,22 @@ targets += [
     // Uses CoreGraphics and ImageIO, so it stays on macOS.
     .executableTarget(name: "rsrc-tool", dependencies: ["ClassicToolbox", "StuntCopterCore"]),
 ]
+#elseif os(Windows)
+products += [.executable(name: "StuntCopter", targets: ["StuntCopterWin"])]
+targets += [
+    // Win32 shell: window, menus, pointer lock, waveOut audio, dialogs, preferences.
+    .executableTarget(
+        name: "StuntCopterWin",
+        dependencies: ["StuntCopterCore", "CStuntCopterWin"],
+        // A GUI app (no console window); Swift's entry point is still `main`.
+        linkerSettings: [.unsafeFlags(["-Xlinker", "/SUBSYSTEM:WINDOWS", "-Xlinker", "/ENTRY:mainCRTStartup"])]
+    ),
+    // The waveOut audio pump, icon construction and a few Win32 macros, in C.
+    .target(
+        name: "CStuntCopterWin",
+        linkerSettings: [.linkedLibrary("winmm"), .linkedLibrary("dwmapi"), .linkedLibrary("user32"), .linkedLibrary("gdi32")]
+    ),
+]
 #endif
 
 let package = Package(
