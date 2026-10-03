@@ -101,8 +101,13 @@ jobs:
           $out = "build\StuntCopter-$version-windows-x64"
           New-Item -ItemType Directory -Force $out | Out-Null
           Copy-Item "$bin\StuntCopter.exe" $out
-          $core = Get-ChildItem -Recurse "$env:ProgramFiles\Swift\Runtimes" -Filter swiftCore.dll | Select-Object -First 1
+          # The installer puts the runtime under %LOCALAPPDATA%\Programs\Swift (per-user)
+          # or %ProgramFiles%\Swift (all users); the toolchain's own bin is a fallback.
+          $roots = @("$env:LOCALAPPDATA\Programs\Swift\Runtimes", "$env:ProgramFiles\Swift\Runtimes",
+                     (Split-Path (Get-Command swift).Source)) | Where-Object { Test-Path $_ }
+          $core = $roots | ForEach-Object { Get-ChildItem -Recurse $_ -Filter swiftCore.dll } | Select-Object -First 1
           if (-not $core) { throw "Swift runtime DLLs not found" }
+          Write-Host "Runtime DLLs from $($core.DirectoryName)"
           Copy-Item "$($core.DirectoryName)\*.dll" $out
           $vcr = Get-ChildItem -Recurse "$env:VCToolsRedistDir" -Filter vcruntime140.dll -ErrorAction SilentlyContinue |
             Where-Object { $_.FullName -match '\\x64\\' } | Select-Object -First 1
