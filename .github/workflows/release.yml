@@ -86,6 +86,8 @@ jobs:
     permissions:
       contents: read
       id-token: write   # OIDC login to Azure for signing
+    env:
+      SIGNING: ${{ secrets.AZURE_CLIENT_ID != '' }}   # `secrets` can't be used in a step `if`
     steps:
       - uses: actions/checkout@v5
 
@@ -109,7 +111,7 @@ jobs:
           "bin=$((swift build -c release --show-bin-path).Trim())" >> $env:GITHUB_OUTPUT
 
       - name: Azure login
-        if: ${{ secrets.AZURE_CLIENT_ID != '' }}
+        if: env.SIGNING == 'true'
         uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -117,7 +119,7 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Sign
-        if: ${{ secrets.AZURE_CLIENT_ID != '' }}
+        if: env.SIGNING == 'true'
         uses: azure/artifact-signing-action@v2
         with:
           endpoint: ${{ secrets.ARTIFACT_SIGNING_ENDPOINT }}
