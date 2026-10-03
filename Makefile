@@ -5,7 +5,7 @@
 #   make run        build and open the app
 #   make universal  like `make app`, but arm64 + x86_64
 #   make release    universal app, signed with your Developer ID (hardened runtime),
-#                   notarized and stapled → build/StuntCopter-<version>.zip
+#                   notarized and stapled → build/StuntCopter-<version>-macos.zip
 #                   Local notarization uses a notarytool keychain profile, created once:
 #                     xcrun notarytool store-credentials stuntcopter-notary \
 #                       --key AuthKey_XXXX.p8 --key-id XXXX --issuer <issuer UUID>
@@ -23,7 +23,7 @@
 
 APP      := build/StuntCopter.app
 VERSION  := $(shell /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Support/macOS/Info.plist)
-ZIP      := build/StuntCopter-$(VERSION).zip
+ZIP      := build/StuntCopter-$(VERSION)-macos.zip
 SIGN_IDENTITY  ?= Developer ID Application
 NOTARY_PROFILE ?= stuntcopter-notary
 NOTARY_ARGS    ?= --keychain-profile $(NOTARY_PROFILE)

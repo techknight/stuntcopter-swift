@@ -1,6 +1,7 @@
 # Builds StuntCopter for macOS (universal, Developer ID–signed, notarized) and
 # Windows (x64), and publishes both zips.
-#   - Push a tag like v1.1.0 → a GitHub Release with both zips.
+#   - Push a tag like v1.1.0 → a GitHub Release with StuntCopter-<version>-macos.zip and
+#     StuntCopter-<version>-windows-x64.zip.
 #   - Run manually (Actions ▸ Release ▸ Run workflow) → the zips as build artifacts.
 #
 # Repository secrets (macOS signing):
@@ -74,7 +75,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: StuntCopter-macOS
-          path: build/StuntCopter-*.zip
+          path: build/StuntCopter-*-macos.zip
 
       - name: Clean up keychain
         if: always()
