@@ -1,4 +1,5 @@
-# StuntCopter for modern macOS.
+# StuntCopter: macOS build, test and release targets. The Windows release build is
+# Support/Windows/build.ps1, and README.md ▸ Releasing covers publishing both.
 #   make            build (debug)
 #   make test       run the test suite
 #   make app        release build → build/StuntCopter.app (ad-hoc signed)

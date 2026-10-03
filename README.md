@@ -1,7 +1,8 @@
-# StuntCopter for modern macOS
+# StuntCopter for modern macOS and Windows
 
 A faithful native port of **StuntCopter 1.5** (1987) by the late **Duane Blehm**
-(HomeTown Software) to current macOS on Apple silicon and Intel.
+(HomeTown Software) to current macOS on Apple silicon and Intel, and to Windows 10
+and 11.
 
 Fly the copter over the hay wagon and click to drop the stuntman. Land all five
 men in the hay to advance a level. Your score is the drop height times the current level.
@@ -38,24 +39,29 @@ Don't land on the driver or the horse!
 
 ### Modern additions
 
-- Integer scaling (View ▸ 1×–4×, ⌘1–⌘4) and full screen (⌃⌘F), letterboxed.
+- Integer scaling (View ▸ 1×–4×; ⌘1–⌘4 on macOS, Ctrl+1–Ctrl+4 on Windows). On macOS
+  there's also full screen (⌃⌘F), letterboxed.
 - The mouse is captured while playing. A virtual pointer is clamped to the old
   512×342 screen, so steering feels like the original, where the cursor stopped at
   the screen edge.
 - **Esc** pauses as well as **Delete** (Backspace).
 - The game pauses automatically when you switch to another app.
-- The high score persists between launches. The original reset it every time.
+- The high score persists between launches. The original reset it every time. macOS
+  keeps it in the app's user defaults, and Windows in
+  `%APPDATA%\StuntCopter\Preferences.txt`, along with the window size.
 - The 1987 program ran as fast as a Mac Plus could manage. Timed on an emulated
   Mac Plus, the original ran about **30 loops/s in play** and about **60 in the attract
   and pause loop**. The port runs a fixed-rate loop at those speeds (20% faster in
-  play with sound off, per Blehm's own note). You can override the baseline:
-  `defaults write com.techknight.StuntCopter LoopsPerSecond -float 40`.
+  play with sound off, per Blehm's own note). You can override the baseline. On
+  macOS, run `defaults write com.techknight.StuntCopter LoopsPerSecond -float 40`.
+  On Windows, add the line `LoopsPerSecond=40` to `Preferences.txt`.
   Options ▸ Set Speed's "SLOW BY 2/4" choices slow it to 80% and 65%.
-- Quit is in the application menu, and desk accessories are gone.
+- On macOS, Quit is in the application menu. On Windows, it's File ▸ Quit (Ctrl+Q)
+  and About is under Help. Desk accessories are gone.
 - The app icon is the original `ICN#`, drawn black on white as the System 6 Finder
   showed it and scaled up by whole pixels onto a white rounded-square plate, clipped
   to the plate's shape. The `ICN#`'s "mask" half isn't a real silhouette, so it's
-  ignored.
+  ignored. The Windows icon is the same artwork.
 
 ## Download
 
@@ -91,6 +97,40 @@ pwsh Support/Windows/build.ps1   # release build with the icon → .build\releas
 The same game and Toolbox code runs on both: only the shell (window, menus, mouse
 capture, audio output, dialogs, preferences) is written twice, against AppKit and
 against Win32.
+
+## Releasing
+
+1. Set the version in `Support/macOS/Info.plist`: `CFBundleShortVersionString`, and
+   bump `CFBundleVersion`. The port's numbering uses 1.0.x for fixes and 1.1 for
+   features.
+2. Commit, tag and push:
+   ```sh
+   git tag -a v1.2.0 -m "StuntCopter 1.2.0"
+   git push origin main v1.2.0
+   ```
+3. `.github/workflows/release.yml` tests and builds both platforms, signs both, and
+   publishes one GitHub Release with `StuntCopter-<version>-macos.zip` and
+   `StuntCopter-<version>-windows-x64.zip`. Running the workflow by hand (Actions ▸
+   Release ▸ Run workflow) builds the same zips as artifacts without publishing.
+
+Signing uses repository secrets, listed with their meaning at the top of
+`release.yml`:
+
+- **macOS:** a Developer ID Application certificate, and an App Store Connect API
+  key for notarization.
+- **Windows:** [Azure Artifact Signing](https://learn.microsoft.com/azure/artifact-signing/),
+  Basic tier, billed monthly. The workflow signs in to Azure with GitHub's OIDC
+  token, so no Azure password is stored. Azure needs:
+  - an Artifact Signing account with a completed identity validation and a Public
+    Trust certificate profile;
+  - an Entra app registration with a federated credential for this repository's
+    `release` environment, which the Windows job runs in;
+  - the role **Artifact Signing Certificate Profile Signer** on the certificate
+    profile, assigned to that app. Assigning it to your own user instead makes the
+    signing step fail with 403 Forbidden. The app needs no role on the subscription.
+
+  Without the `AZURE_CLIENT_ID` secret, the signing steps are skipped and the exe
+  ships unsigned.
 
 ## Layout
 
